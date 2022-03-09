@@ -1,0 +1,71 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var ndviVis = {"opacity":1,"bands":["nd"],"min":-0.995337995651108,"max":0.8771005757171471,"palette":["ff0000","ff8100","fff700","56ff00","03a500"]},
+    ndwiVis = {"opacity":1,"bands":["nd"],"min":-0.7971415465316397,"max":0.9891891896994097,"palette":["00ffff","0000ff"]};
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+/**
+ * Function to mask clouds using the Sentinel-2 QA band
+ * @param {ee.Image} image Sentinel-2 image
+ * @return {ee.Image} cloud masked Sentinel-2 image
+ */
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+
+  // Bits 10 and 11 are clouds and cirrus, respectively.
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+
+  // Both flags should be set to zero, indicating clear conditions.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0)
+      .and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+
+  return image.updateMask(mask).divide(10000);
+}
+
+var S2HR_Jan2022 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+                  .filterDate('2022-01-01', '2022-01-31')
+                  // Pre-filter to get less cloudy granules.
+                  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',10))
+                  .map(maskS2clouds);
+                  
+                  
+Map.setCenter(0.3, 51.485, 11);
+Map.addLayer(S2HR_Jan2022, {bands: ['B4', 'B3', 'B2'], min: 0, max:0.35}, 'S2_HR_IC_RGB');
+
+var S2HR_Jan2022Mosaic = S2HR_Jan2022.mosaic();
+Map.addLayer(S2HR_Jan2022Mosaic, {bands: ['B8', 'B3', 'B2'], min: 0, max:0.35}, 'S2_HR_M_NIR');
+
+// Create the NDVI and NDWI spectral indices.
+var ndvi = S2HR_Jan2022Mosaic.normalizedDifference(['B8', 'B4']);
+var ndwi = S2HR_Jan2022Mosaic.normalizedDifference(['B3', 'B8']);
+
+//Create the Visual parameters of NDVI and NDWI and add the Map Layers
+var ndviVis = {"opacity":1,"bands":["nd"],"min":-0.995337995651108,"max":0.8771005757171471,"palette":["ff0000","ff8100","fff700","56ff00","03a500"]};
+Map.addLayer(ndvi, ndviVis, 'NDVI');
+
+var ndwiVis = {"opacity":1,"bands":["nd"],"min":-0.7971415465316397,"max":0.9891891896994097,"palette":["00ffff","0000ff"]};
+Map.addLayer(ndwi, ndwiVis, 'NDWI');
+
+// Create some binary images from thresholds on the indices.
+// This threshold is designed to detect bare land.
+var bare1 = ndvi.lt(0.2).and(ndwi.lt(0.3));
+// This detects bare land with lower sensitivity. It also detects shadows.
+var bare2 = ndvi.lt(0.2).and(ndwi.lt(0.8));
+
+// Define visualization parameters for the spectral indices.
+var ndviViz = {min: -1, max: 1, palette: ['FF0000', '00FF00']};
+var ndwiViz = {min: 0.5, max: 1, palette: ['00FFFF', '0000FF']};
+
+// Mask and mosaic visualization images.  The last layer is on top.
+var mosaic = ee.ImageCollection([
+  // NDWI > 0.5 is water.  Visualize it with a blue palette.
+  ndwi.updateMask(ndwi.gte(0.5)).visualize(ndwiViz),
+  // NDVI > 0.2 is vegetation.  Visualize it with a green palette.
+  ndvi.updateMask(ndvi.gte(0.2)).visualize(ndviViz),
+  // Visualize bare areas with shadow (bare2 but not bare1) as gray.
+  bare2.updateMask(bare2.and(bare1.not())).visualize({palette: ['AAAAAA']}),
+  // Visualize the other bare areas as white.
+  bare1.updateMask(bare1).visualize({palette: ['FFFFFF']}),
+]).mosaic();
+Map.addLayer(mosaic, {}, 'Visualization mosaic');
+
+
