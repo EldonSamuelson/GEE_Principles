@@ -29,12 +29,15 @@ var S2HR_Jan2022 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
                   
                   
 Map.setCenter(0.3, 51.485, 11);
+
+//Image Collection
 Map.addLayer(S2HR_Jan2022, {bands: ['B4', 'B3', 'B2'], min: 0, max:0.35}, 'S2_HR_IC_RGB');
 
+//Mosaic
 var S2HR_Jan2022Mosaic = S2HR_Jan2022.mosaic();
 Map.addLayer(S2HR_Jan2022Mosaic, {bands: ['B8', 'B3', 'B2'], min: 0, max:0.35}, 'S2_HR_M_NIR');
 
-// Create the NDVI and NDWI spectral indices.
+// Create the NDVI and NDWI spectral indices using the Mosiac
 var ndvi = S2HR_Jan2022Mosaic.normalizedDifference(['B8', 'B4']);
 var ndwi = S2HR_Jan2022Mosaic.normalizedDifference(['B3', 'B8']);
 
