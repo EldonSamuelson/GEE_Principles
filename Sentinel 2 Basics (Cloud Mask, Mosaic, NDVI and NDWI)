@@ -71,4 +71,10 @@ var mosaic = ee.ImageCollection([
 ]).mosaic();
 Map.addLayer(mosaic, {}, 'Visualization mosaic');
 
+/*
+var mask = landRaster.updateMask(landRaster.eq(0));
+
+var maskedImage = S2HR_Jan2022Mosaic.updateMask(mask.eq(0));
+*/
+
 
