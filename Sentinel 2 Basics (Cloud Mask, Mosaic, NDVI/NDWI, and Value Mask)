@@ -61,8 +61,8 @@ var ndwiViz = {min: 0.5, max: 1, palette: ['00FFFF', '0000FF']};
 // Get a palette: a list of hex strings
 // See https://github.com/gee-community/ee-palettes for use on these palettes
 var palettes = require('users/gena/packages:palettes');
-var palette1 = palettes.cmocean.Algae[7];
-Map.addLayer(ndvi, {min:-1, max:1, palette:palette1}, 'NDVI_AlgaePalette');
+var palette1 = palettes.matplotlib.plasma[7];
+Map.addLayer(ndvi, {min:-1, max:1, palette:palette1}, 'NDVI_Viridis');
 
 // Mask and mosaic visualization images.  The last layer is on top.
 var mosaic = ee.ImageCollection([
