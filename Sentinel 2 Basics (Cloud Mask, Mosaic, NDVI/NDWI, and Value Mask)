@@ -75,7 +75,7 @@ var mosaic = ee.ImageCollection([
   // Visualize the other bare areas as white.
   bare1.updateMask(bare1).visualize({palette: ['FFFFFF']}),
 ]).mosaic();
-Map.addLayer(mosaic, {}, 'Visualization mosaic');
+Map.addLayer(mosaic, {}, 'Visualization mosaic', false);
 
 /*
 var mask = landRaster.updateMask(landRaster.eq(0));
