@@ -22,16 +22,16 @@ function maskS2clouds(image) {
 }
 
 var S2HR_Jan2022 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-                  .filterDate('2022-01-01', '2022-01-31')
+                  .filterDate('2018-01-01', '2022-02-01')
                   // Pre-filter to get less cloudy granules.
-                  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',10))
+                  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',5))
                   .map(maskS2clouds);
                   
                   
-Map.setCenter(0.3, 51.485, 11);
+//Map.setCenter(0.3, 51.485, 11);
 
 //Image Collection
-Map.addLayer(S2HR_Jan2022, {bands: ['B4', 'B3', 'B2'], min: 0, max:0.35}, 'S2_HR_IC_RGB');
+Map.addLayer(S2HR_Jan2022, {bands: ['B4', 'B3', 'B2'], min: 0, max:0.35}, 'S2_HR_IC_RGB',false);
 
 //Mosaic
 var S2HR_Jan2022Mosaic = S2HR_Jan2022.mosaic();
@@ -43,10 +43,10 @@ var ndwi = S2HR_Jan2022Mosaic.normalizedDifference(['B3', 'B8']);
 
 //Create the Visual parameters of NDVI and NDWI and add the Map Layers
 var ndviVis = {"opacity":1,"bands":["nd"],"min":-0.995337995651108,"max":0.8771005757171471,"palette":["ff0000","ff8100","fff700","56ff00","03a500"]};
-Map.addLayer(ndvi, ndviVis, 'NDVI');
+Map.addLayer(ndvi, ndviVis, 'NDVI', false);
 
 var ndwiVis = {"opacity":1,"bands":["nd"],"min":-0.7971415465316397,"max":0.9891891896994097,"palette":["00ffff","0000ff"]};
-Map.addLayer(ndwi, ndwiVis, 'NDWI');
+Map.addLayer(ndwi, ndwiVis, 'NDWI', false);
 
 // Create some binary images from thresholds on the indices.
 // This threshold is designed to detect bare land.
