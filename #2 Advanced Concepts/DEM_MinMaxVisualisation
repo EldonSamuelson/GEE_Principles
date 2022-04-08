@@ -2,6 +2,11 @@
 // Worth visiting for more context and application of Legends also.
 // e.g. More developed: https://code.earthengine.google.com/967aa5da56bb42c29af5a8e9f0123645
 
+// Pull the package from the GitHub repo which stores colour palettes to be used in GEE
+// See https://github.com/gee-community/ee-palettes for more info
+var palettes = require('users/gena/packages:palettes');
+var HSpalette = palettes.niccoli.cubicl[7];
+
 // Define region of interest
 var regionOfInterest = ee.FeatureCollection("FAO/GAUL/2015/level0").filter(ee.Filter.eq('ADM0_NAME', 'Switzerland'));
 
@@ -36,8 +41,8 @@ minMax.evaluate(function(val){
 var visParam = {
         min: min,
         max: max,
-        palette: ['green', 'yellow', 'brown']
+        palette: HSpalette
         };
         
-Map.addLayer(img, visParam, "Image");
+Map.addLayer(img, visParam, "Switzerland DEM");
 })
