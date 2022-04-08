@@ -1,0 +1,39 @@
+// Define region of interest
+var regionOfInterest = ee.FeatureCollection("FAO/GAUL/2015/level0").filter(ee.Filter.eq('ADM0_NAME', 'Switzerland'));
+
+// Image of interest
+var img = ee.Image("WWF/HydroSHEDS/03VFDEM").clip(regionOfInterest);
+
+// Centre the Map on the RoI
+Map.centerObject(regionOfInterest,8);
+
+// Calculate min/max values
+var minMax = img.reduceRegion({reducer: ee.Reducer.minMax(), 
+                               geometry: regionOfInterest, 
+                               scale: img.projection().nominalScale(),
+                               bestEffort: true,
+                               maxPixels: 1e9,
+});
+/* NOTE: Nominal Scale is the true-scale of the image. For this reason, the scale bar will show different 
+*        min/max values than what is shown at whatever zoom level you are looking at.
+*        EXAMPLE: At the defaut zoom for this DEM of Switzerland, the min/max of the layer is 201/3726m
+*        The true min/max at true scale is 116/4420m
+*        This doesn't matter when you're only using GEE as a visualisation tool, but this scale issue
+*        can cause problems unless you set '.nominalScale()' when you export the results for analysis later.
+*/
+                               
+// Rename keys
+var minMax = minMax.rename(minMax.keys(), ['max','min']);  
+
+// Retrieve dictionary values and pass to visParam settings
+minMax.evaluate(function(val){
+  var min = val.min;
+  var max = val.max;
+var visParam = {
+        min: min,
+        max: max,
+        palette: ['green', 'yellow', 'brown']
+        };
+        
+Map.addLayer(img, visParam, "Image");
+})
