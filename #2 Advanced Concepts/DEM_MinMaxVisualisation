@@ -1,3 +1,7 @@
+//Source: https://gis.stackexchange.com/questions/421943/automate-max-and-mix-values-of-a-raster-in-my-color-palette-on-google-earth-engi
+// Worth visiting for more context and application of Legends also.
+// e.g. More developed: https://code.earthengine.google.com/967aa5da56bb42c29af5a8e9f0123645
+
 // Define region of interest
 var regionOfInterest = ee.FeatureCollection("FAO/GAUL/2015/level0").filter(ee.Filter.eq('ADM0_NAME', 'Switzerland'));
 
