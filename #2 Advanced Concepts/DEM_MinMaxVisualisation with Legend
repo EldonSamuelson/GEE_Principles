@@ -71,7 +71,7 @@ function makeColorBarParams(palette) {
 
 // Create the colour bar for the legend
 var colorBar = ui.Thumbnail({
-  image: ee.Image.pixelLonLat().select('latitude').int(),
+  image: ee.Image.pixelLonLat().select('longitude').int(),
   params: makeColorBarParams(visParam.palette),
   style: {position: 'bottom-left', stretch: 'horizontal', margin: '0px 8px', maxHeight: '24px'},
 });
@@ -98,13 +98,13 @@ var legendTitle = ui.Label({
 var legendPanel = ui.Panel([legendTitle, colorBar, legendLabels]);
 Map.add(legendPanel);
 
-// LEGEND VERSION 2 (Vertical, Gradient, position can be changed intuitively)
+// LEGEND VERSION 2 (Vertical, Stepped, position can be changed intuitively)
 //Source: https://mygeoblog.com/2017/03/02/creating-a-gradient-legend/
 // Creates a 7-step color bar thumbnail image for use in legend from the given color palette
 function makeColorBarParams2(palette) {
   return {
-    bbox: [0 ,0 , 7, 0.1],
-    dimensions: '10x200',
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x196',
     format: 'png',
     min: 0,
     max: 7,
@@ -147,13 +147,14 @@ legendpos.add(panel);
 var thumbnail = ui.Thumbnail({
   image: ee.Image.pixelLonLat().select('latitude').int(),
   params: makeColorBarParams2(visParam.palette),
-  style: {padding: '1px', position: 'bottom-center'}
+  style: {position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+  //style: {padding: '1px', position: 'bottom-center'}
 });
 
 // add the thumbnail to the legend
 legendpos.add(thumbnail);
 
-// create text on top of legend
+// create text on bottom of legend
 var panel2 = ui.Panel({
     widgets: [
       ui.Label(visParam['min'])
