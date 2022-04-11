@@ -71,7 +71,7 @@ function makeColorBarParams(palette) {
 
 // Create the colour bar for the legend
 var colorBar = ui.Thumbnail({
-  image: ee.Image.pixelLonLat().select(0).int(),
+  image: ee.Image.pixelLonLat().select('latitude').int(),
   params: makeColorBarParams(visParam.palette),
   style: {position: 'bottom-left', stretch: 'horizontal', margin: '0px 8px', maxHeight: '24px'},
 });
@@ -103,7 +103,7 @@ Map.add(legendPanel);
 // Creates a 7-step color bar thumbnail image for use in legend from the given color palette
 function makeColorBarParams2(palette) {
   return {
-    bbox: [7 ,0 ,0, 0.1],
+    bbox: [0 ,0 , 7, 0.1],
     dimensions: '10x200',
     format: 'png',
     min: 0,
@@ -134,11 +134,6 @@ var legendTitle2 = ui.Label({
  // Add the title to the panel
 legendpos.add(legendTitle2); 
 
-// create the legend image
-var lon = ee.Image.pixelLonLat().select('latitude');
-//var gradient = lon.multiply((visParam.max-visParam.min)/100.0).add(visParam.min);
-//var legendImage = gradient.visualize(visParam);
-
 // create text on top of legend
 var panel = ui.Panel({
     widgets: [
@@ -150,7 +145,7 @@ legendpos.add(panel);
   
 // create thumbnail from the image
 var thumbnail = ui.Thumbnail({
-  image: ee.Image.pixelLonLat().select(0).int(),
+  image: ee.Image.pixelLonLat().select('latitude').int(),
   params: makeColorBarParams2(visParam.palette),
   style: {padding: '1px', position: 'bottom-center'}
 });
