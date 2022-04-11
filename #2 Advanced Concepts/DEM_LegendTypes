@@ -69,7 +69,7 @@ var legendPanel = ui.Panel([legendTitle, colorBar, legendLabels]);
 Map.add(legendPanel);
 
 // LEGEND VERSION 2 (Vertical, Stepped, position can be changed intuitively)
-//Source: https://mygeoblog.com/2017/03/02/creating-a-gradient-legend/
+
 // Creates a 7-step color bar thumbnail image for use in legend from the given color palette
 function makeColorBarParams2(palette) {
   return {
@@ -136,6 +136,7 @@ legendpos.add(panel2);
 Map.add(legendpos);
 
 //LEGEND 3 (Vertical, Gradient, position can be changed intuitvely)
+//Source: https://mygeoblog.com/2017/03/02/creating-a-gradient-legend/
 // set position of panel
 var legendpos3 = ui.Panel({
   style: {
