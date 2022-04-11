@@ -38,6 +38,13 @@ var minMax = minMax.rename(minMax.keys(), ['max','min']);
 minMax.evaluate(function(val){
   var min = val.min;
   var max = val.max;
+/* VERY COMPLICATED EXPLANATION OF THIS CONTINUING CODE (lines 37-161)
+*  'VisParam' is nested within the above '(function(val){' so it gets the min/max values for the specific layer.
+*  That means both legends have to be within this giant '});' section that goes all the way to the bottom.
+*  Additional legends would also have to be within this nesting to work, as outside it 'visParam' isn't defined
+*  Alternately (and simpler) would be to define another 'visParam' outside the nesting, but then that loses the
+*  ability to use Min/Max values automatically, and you would have to set the values yourself for each layer.
+*/
 var visParam = {
         min: min,
         max: max,
@@ -48,7 +55,9 @@ Map.addLayer(img, visParam, "Switzerland DEM");
 
 // Legend Stuff
 
-// Creates a color bar thumbnail image for use in legend from the given color palette
+//LEGEND VERSION 1 (Horizontal, Centered, position is not easily changed)
+
+// Creates a 7-step color bar thumbnail image for use in legend from the given color palette
 function makeColorBarParams(palette) {
   return {
     bbox: [0, 0, 7, 0.1],
@@ -88,4 +97,75 @@ var legendTitle = ui.Label({
 // Add the legendPanel to the map
 var legendPanel = ui.Panel([legendTitle, colorBar, legendLabels]);
 Map.add(legendPanel);
+
+// LEGEND VERSION 2 (Vertical, Gradient, position can be changed intuitively)
+//Source: https://mygeoblog.com/2017/03/02/creating-a-gradient-legend/
+// Creates a 7-step color bar thumbnail image for use in legend from the given color palette
+function makeColorBarParams2(palette) {
+  return {
+    bbox: [7 ,0 ,0, 0.1],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: HSpalette,
+  };
+}
+// set position of panel
+var legendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+ 
+ 
+// Create legend title
+var legendTitle2 = ui.Label({
+  value: 'Height (m)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '18px',
+    margin: '0 0 4px 0',
+    padding: '0'
+    }
+});
+
+ // Add the title to the panel
+legendpos.add(legendTitle2); 
+
+// create the legend image
+var lon = ee.Image.pixelLonLat().select('latitude');
+//var gradient = lon.multiply((visParam.max-visParam.min)/100.0).add(visParam.min);
+//var legendImage = gradient.visualize(visParam);
+
+// create text on top of legend
+var panel = ui.Panel({
+    widgets: [
+      ui.Label(visParam['max'])
+    ],
+  });
+
+legendpos.add(panel);
+  
+// create thumbnail from the image
+var thumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select(0).int(),
+  params: makeColorBarParams2(visParam.palette),
+  style: {padding: '1px', position: 'bottom-center'}
+});
+
+// add the thumbnail to the legend
+legendpos.add(thumbnail);
+
+// create text on top of legend
+var panel2 = ui.Panel({
+    widgets: [
+      ui.Label(visParam['min'])
+    ],
+  });
+
+legendpos.add(panel2);
+
+Map.add(legendpos);
 });
