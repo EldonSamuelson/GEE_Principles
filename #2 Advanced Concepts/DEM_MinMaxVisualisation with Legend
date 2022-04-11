@@ -90,7 +90,7 @@ var legendLabels = ui.Panel({
 
 // Legend title
 var legendTitle = ui.Label({
-  value: 'Height (m)',
+  value: 'Legend 1 - Height (m)',
   style: {fontWeight: 'bold'}
 });
 
@@ -122,10 +122,10 @@ var legendpos = ui.Panel({
  
 // Create legend title
 var legendTitle2 = ui.Label({
-  value: 'Height (m)',
+  value: 'Legend 2 - Height (m)',
   style: {
     fontWeight: 'bold',
-    fontSize: '18px',
+    fontSize: '16px',
     margin: '0 0 4px 0',
     padding: '0'
     }
@@ -164,4 +164,63 @@ var panel2 = ui.Panel({
 legendpos.add(panel2);
 
 Map.add(legendpos);
+
+//LEGEND 3 (Vertical, Gradient, position can be changed intuitvely)
+// set position of panel
+var legendpos3 = ui.Panel({
+  style: {
+    position: 'bottom-right',
+    padding: '8px 15px'
+  }
+});
+ 
+// Create legend title
+var legendTitle3 = ui.Label({
+  value: 'Legend 3 - Height (m)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '16px',
+    margin: '0 0 4px 0',
+    padding: '0'
+    }
+});
+
+ // Add the title to the panel
+legendpos3.add(legendTitle3); 
+
+// create the legend image
+var lon = ee.Image.pixelLonLat().select('latitude');
+var gradient = lon.multiply((visParam.max-visParam.min)/100).add(visParam.min);
+var legendImage = gradient.visualize(visParam);
+
+// create text on top of legend
+var panel3 = ui.Panel({
+    widgets: [
+      ui.Label(visParam['max'])
+    ],
+  });
+
+legendpos3.add(panel3);
+  
+// create thumbnail from the image
+var thumbnail3 = ui.Thumbnail({
+  image: legendImage, 
+  params: {bbox:'0,0,10,100', dimensions:'10x200'},  
+  style: {padding: '1px', position: 'bottom-center'}
+});
+
+// add the thumbnail to the legend
+legendpos3.add(thumbnail3);
+
+// create text on top of legend
+var panel3 = ui.Panel({
+    widgets: [
+      ui.Label(visParam['min'])
+    ],
+  });
+
+legendpos3.add(panel3);
+
+Map.add(legendpos3);
+
 });
