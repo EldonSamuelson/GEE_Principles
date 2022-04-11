@@ -213,13 +213,13 @@ var thumbnail3 = ui.Thumbnail({
 legendpos3.add(thumbnail3);
 
 // create text on top of legend
-var panel3 = ui.Panel({
+var panel4 = ui.Panel({
     widgets: [
       ui.Label(visParam['min'])
     ],
   });
 
-legendpos3.add(panel3);
+legendpos3.add(panel4);
 
 Map.add(legendpos3);
 
