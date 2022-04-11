@@ -25,6 +25,7 @@ Map.addLayer(img, visParam, "Switzerland DEM");
 // Legend Stuff
 
 //LEGEND VERSION 1 (Horizontal, Centered, position is not easily changed)
+// Source: https://gis.stackexchange.com/questions/421937/customizing-a-continuous-legend-in-google-earth-engine
 
 // Creates a 7-step color bar thumbnail image for use in legend from the given color palette
 function makeColorBarParams(palette) {
