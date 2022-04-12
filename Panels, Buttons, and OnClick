@@ -1,0 +1,37 @@
+// Create a panel with vertical flow layout.
+var panel = ui.Panel({
+  layout: ui.Panel.Layout.flow('vertical'),
+  style: {width: '10%'}
+});
+
+// Add 5  buttons.
+// Prints the current center of the scene
+panel.add(ui.Button({
+  label: 'Get Map Center',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    print(Map.getCenter());
+  }
+}));
+
+// Zooms in to the current center of the scene to level 10
+panel.add(ui.Button({
+  label: 'Zoom in Map Center',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.setZoom(10);
+  }
+}));
+
+// Resets the Zoom out of the scene to level 3
+panel.add(ui.Button({
+  label: 'Reset Zoom Map Center',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.setZoom(3);
+  }
+}));
+panel.add(ui.Button({label: 'Button 4 ', style: {stretch: 'horizontal'}}));
+panel.add(ui.Button({label: 'Button 5 ', style: {stretch: 'horizontal'}}));
+
+ui.root.add(panel);
