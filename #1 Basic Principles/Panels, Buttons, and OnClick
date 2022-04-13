@@ -1,4 +1,5 @@
-//Source: https://gis.stackexchange.com/questions/366738/add-ui-button-google-earth-engine
+// Source: https://developers.google.com/earth-engine/guides/ui_panels#widgets
+// Source: https://gis.stackexchange.com/questions/366738/add-ui-button-google-earth-engine
 
 // Create a panel with vertical flow layout.
 var panel = ui.Panel({
