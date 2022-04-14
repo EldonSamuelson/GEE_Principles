@@ -1,0 +1,47 @@
+// Source: https://gis.stackexchange.com/questions/425159/how-to-make-a-cloud-free-composite-for-landsat-8-collection-2-surface-reflectanc
+// By User Justin Braaten
+// Uses the new LANDSAT COLLECTION 2 (C02) imagery that will replace older Collection 01 (which will be removed from GEE in 2023).
+
+// A function that scales and masks Landsat 8 (C02) surface reflectance images.
+function prepSrL8(image) {
+  // Develop masks for unwanted pixels (fill, cloud, cloud shadow).
+  var qaMask = image.select('QA_PIXEL').bitwiseAnd(parseInt('11111', 2)).eq(0);
+  var saturationMask = image.select('QA_RADSAT').eq(0);
+
+  // Apply the scaling factors to the appropriate bands.
+  var getFactorImg = function(factorNames) {
+    var factorList = image.toDictionary().select(factorNames).values();
+    return ee.Image.constant(factorList);
+  };
+  var scaleImg = getFactorImg([
+    'REFLECTANCE_MULT_BAND_.|TEMPERATURE_MULT_BAND_ST_B10']);
+  var offsetImg = getFactorImg([
+    'REFLECTANCE_ADD_BAND_.|TEMPERATURE_ADD_BAND_ST_B10']);
+  var scaled = image.select('SR_B.|ST_B10').multiply(scaleImg).add(offsetImg);
+
+  // Replace original bands with scaled bands and apply masks.
+  return image.addBands(scaled, null, true)
+    .updateMask(qaMask).updateMask(saturationMask);
+}
+
+
+// Washington state boundary.
+var roi = ee.FeatureCollection('FAO/GAUL/2015/level1')
+  .filter('ADM1_NAME == "Washington"').first().geometry();
+
+// Landsat 8 Collection 2 surface reflectance images of interest.
+var col = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+  .filterBounds(roi)
+  .filterDate('2021-06-15', '2021-09-15')
+  .map(prepSrL8)
+  .select('SR.*')
+  .median();
+
+// Display the cloud-free median composite.
+var visParams = {
+  bands: ['SR_B4', 'SR_B3', 'SR_B2'],
+  min: 0,
+  max: 0.4
+};
+Map.setCenter(-120.633, 47.263, 7);
+Map.addLayer(col.clip(roi), visParams, 'Cloud-free mosaic');
