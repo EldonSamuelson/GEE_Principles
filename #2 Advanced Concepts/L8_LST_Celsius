@@ -4,6 +4,9 @@ var table = ee.FeatureCollection("users/SeamusWOD/Thames_River_Basin");
 //SOURCE: https://gis.stackexchange.com/questions/314374/calculating-lst-from-landsat-8-in-google-earth-engine
 //This was the code in the 'Answer' Reply by User Edwin Osei.
 
+// NOTE - IN 2023 THE LANDSAT C01 COLLECTION WILL BE REMOVED, MUST BE REPLACED AND RE-MASKED WITH:
+// https://code.earthengine.google.com/cee80ebf146ec274592a01476218b793
+
 
 //cloud mask
 function maskL8sr(col) {
