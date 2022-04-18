@@ -194,3 +194,16 @@ legendpos3.add(panel4);
 
 Map.add(legendpos3);
 
+// Exports the result to Google Drive
+// See https://developers.google.com/earth-engine/apidocs/export-image-todrive for more 
+// Check TASKS to Run and confirm
+Export.image.toDrive({
+    image: img.visualize(visParam), // Sets the image to keep the current Visualisation parameters
+    description: 'Swiss_DEMtest', // Sets the description, NOT THE NAME.
+    folder: 'GEETestFolder', // The destination folder for the imagery in your Account's Googl Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+
+// NOTE: Download takes aaaaages to run. >1 hr so far.
