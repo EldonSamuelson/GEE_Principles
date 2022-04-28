@@ -182,9 +182,9 @@ var S2_L1C_Func = S2_L1C.map(addNDWI).map(addNDVI).map(VegMaskL1C).map(WaterMask
 
 // Add the individual new bands to the Map
 // NDVI
-Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDVIVis, 'L1C NDVI');
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDVIVis, 'L1C NDVI', false);
 // NDWI
-Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDWIVis, 'L1C NDWI');
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDWIVis, 'L1C NDWI', false);
 // NDVI Mask
 Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDVIMaskVis, 'L1C NDVIMask');
 // NDWI Mask
