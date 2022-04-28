@@ -137,7 +137,7 @@ var S2_L1C = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
                   .map(function(image) {
                     return image.clip(BOUNDS);
                   });
-print(S2_L1C)
+print(S2_L1C);
 print('Time, Date, Bounding, and Cloud Tile Filtering parameters set for Imagery');
 
 // Add the pre-clipped IC's to the map
@@ -198,5 +198,5 @@ Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), L1CMaskVis, 'L1
 var S2_L1C_Masked = S2_L1C_Func.map(L1CMask);
 // Clipped hopefully?!
 Map.addLayer(S2_L1C_Masked.filterDate('2022-03-30', '2022-04-01'), rgbVis, 'L1C MaskApplied');
-print(S2_L1C_Func)
-print(S2_L1C_Masked)
+print(S2_L1C_Func);
+print(S2_L1C_Masked);
