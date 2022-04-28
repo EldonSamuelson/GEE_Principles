@@ -1,0 +1,202 @@
+//SOURCE: Seamus O'Donnell, with corrections to mapping parameters by Olga_Danylo @ https://gis.stackexchange.com/a/429904/195581
+// ### IMPORTED GEOMETRY ###
+var ShannonGeom = 
+    /* color: #d6cfcf */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-9.061457413652322, 52.9400316020557],
+          [-9.061457413652322, 52.6131383784731],
+          [-8.26623608491697, 52.6131383784731],
+          [-8.26623608491697, 52.9400316020557]]], null, false);
+
+// ### FILTER PARAMETERS ### 
+//These apply the parameters to both L1C and L2A imagery and stop repetitive data entry
+// CLOUD % format '00' , numbers only without quotes
+var MIN_CLOUD_PERCENT = 50;
+// START DATE & END DATE format: 'YYYY-MM-DD', include the quotes
+var START_DATE = '2022-01-01';
+var END_DATE = '2022-04-01';
+// BOUNDS can either be a drawn geometry shape within GEE, or an imported SHP file
+// See: https://developers.google.com/earth-engine/guides/table_upload#upload-a-shapefile
+var BOUNDS = ShannonGeom;
+// ZOOM is based on GEE's 1-24 level system. Larger number = Larger Zoom
+var ZOOM = 10;
+// PARAMETERS END - You don't need to change anything below this line to make the script function
+
+// ### MISC ###
+//Prints out the Parameters set
+print('Filtering available Sentinel 2 imagery between ' + START_DATE + ' & ' + END_DATE + ' with ' + MIN_CLOUD_PERCENT + '% cloud over the area of interest.');
+// Centre based on the Geometry (Region of Interest, Zoom Level)
+Map.centerObject(BOUNDS, ZOOM, print('Map centered on Region of Interest'));
+// Sets the default Map to Terrain mode (Roadmap overlain with hillsahde) 
+Map.setOptions("TERRAIN");
+
+// ### EEPALETTES & LAYER VISUALISATION ###
+/* Required for most layer visualisations
+*  See https://github.com/gee-community/ee-palettes for more information
+*
+*  IF IT FAILS TO LOAD the PALETTES, LOAD THIS URL FIRST, THEN REFRESH THE PAGE: 
+* (https://code.earthengine.google.com/?accept_repo=users/gena/packages)
+*/
+var palettes = require('users/gena/packages:palettes');
+// NDWI palette 
+var NDWIPalette = palettes.cmocean.Ice[7].reverse();
+// NDVI palette
+var NDVIPalette = palettes.colorbrewer.RdYlGn[10];
+
+// Truecolour (R-G-B) Visualisation
+var rgbVis = {
+  min: 0,
+  max: 0.35,
+  bands: ['B4', 'B3', 'B2'],
+};
+// NDWI Visualisation
+var NDWIVis = {
+  min: -1,
+  max: 1,
+  bands: ['NDWI'],
+  palette: NDWIPalette
+};
+// NDVI Visualisation
+var NDVIVis = {
+  min: -1,
+  max: 1,
+  bands: ['NDVI'],
+  palette: NDVIPalette
+};
+// NDVI Mask Visualisation
+var NDVIMaskVis = {
+  min: 0,       // Land Areas
+  max: 1,       // Other Areas
+  bands: ['NDVI_Mask'],
+  palette: ['cccccc','088300'],
+  opacity: 0.65
+};
+// NDWI Mask Visualisation
+var NDWIMaskVis = {
+  min: 0,       // Land and Non-Water Areas
+  max: 1,       // Water Areas
+  bands: ['NDWI_Mask'],
+  palette: ['cccccc','0000ff'],
+  opacity: 0.65
+};
+// L1C Water/Veg Mask Visualisation
+var L1CMaskVis = {
+  min: 0,       // Land and Non-Water Areas
+  max: 1,       // Water Areas
+  bands: ['L1CMask'],
+  palette: ['cccccc','f90000'],
+  opacity: 0.65
+};
+
+// ### CLOUD MASKING ###
+// Sentinel 2 Cloud Masking Function using the 60m Cloud Mask Band
+/*  Function to mask clouds using the Sentinel-2 QA band
+ *  @param {ee.Image} image Sentinel-2 image
+ *  @return {ee.Image} cloud masked Sentinel-2 image
+ */
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+  // Bits 10 and 11 are clouds and cirrus, respectively.
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+  // Both flags should be set to zero, indicating clear conditions.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0).and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+   return image.updateMask(mask).divide(10000).copyProperties(image, ["system:time_start"]);
+}
+print('Sentinel 2 Cloud Mask Function Complete');
+
+// ### IMAGE COLLECTIONS ### 
+//Load and Map L1C imagery with the filter parameters applied
+                  /*
+                  *  Load Sentinel-2 'Harmonized' Top Of Atomsphere (L1C) data
+                  *  Dataset details: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_HARMONIZED
+                  *  HARMONIZED makes sure scenes after 25 January 2022 have the same DN ranges as older L1C scenes.
+                  *  Harmonised L1C Data is available from Sentinel 2 Launch (2015-06-23) onwards.
+                  */
+var S2_L1C = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
+                  // Filter by Date Period (YYYY-MM-DD)
+                  .filterDate(START_DATE, END_DATE)
+                  /* 
+                  *  Pre-filter to get less cloudy granules
+                  *  'Default' is aiming for 10% cloud
+                  *  Dependent on availability of cloud-free imagery in the time period set
+                  *  Longer periods will take longer to load
+                  */
+                  .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', MIN_CLOUD_PERCENT))
+                  // Select only image tiles that fall within the Geometry (Region of Interest) to reduce processing time
+                  .filterBounds(BOUNDS)
+                  // Applies the S2 Cloud Masking Function to each image in the IC
+                  .map(maskS2clouds)
+                  // Clips each image in the IC by the Bounds to reduce processing time further
+                  .map(function(image) {
+                    return image.clip(BOUNDS);
+                  });
+print(S2_L1C)
+print('Time, Date, Bounding, and Cloud Tile Filtering parameters set for Imagery');
+
+// Add the pre-clipped IC's to the map
+Map.addLayer(S2_L1C.filterDate('2022-03-30', '2022-04-01'),rgbVis,'L1C');
+
+// ### FUNCTIONS ###
+  // Add NDWI band to IC
+  var addNDWI = function(image) {
+    return image.addBands(image.normalizedDifference(['B3', 'B8']).rename('NDWI'));
+  }; 
+  // Add an NDVI band to IC
+  var addNDVI = function(image) {
+   return image.addBands(image.normalizedDifference(['B8', 'B4']).rename('NDVI'));
+  };
+  // ### L1C MASK FUNCTIONS ###
+  // Function to mask out NDWI (L1C)
+  var WaterMaskL1C = function(image) {
+   var NDWI = image.select(['NDWI']);
+    return image.addBands(NDWI.gte(0.1).rename('NDWI_Mask'));
+  };
+  // Function to mask out NDVI (L1C)
+  var VegMaskL1C = function(image) {
+   var NDVI = image.select(['NDVI']);
+     return image.addBands(NDVI.lte(0).rename('NDVI_Mask'));
+  };
+  // Function to combine both L1C Masks
+  var CombinedL1CMask = function(image) {
+    var NDWI_Mask = image.select(['NDWI_Mask']);
+    var NDVI_Mask = image.select(['NDVI_Mask']);
+     // Adds the 2 masks together, and then clamps the output to be binary to keep it suitable for masking
+     return image.addBands(NDWI_Mask.add(NDVI_Mask).clamp(0,1).rename('L1CMask')); 
+  };
+  // Function to update the clipping of imagery to just the water areas, as defined by the combined Mask
+  //.rename(['B1_Msk','B2_Msk','B3_Msk','B4_Msk','B5_Msk','B6_Msk','B7_Msk','B8_Msk','B8A_Msk','B9_Msk','B10_Msk','B11_Msk','B12_Msk','QA10_Msk','QA20_Msk','QA60_Msk','NDWI_Msk','NDVI_Msk','NDVI_Mask2','NDWI_Mask2','L1CMask2'])
+  var L1CMask = function(image) {
+    var Mask = image.select(['L1CMask']);
+     return image.updateMask(Mask.eq(1));
+  };
+
+// Applies all the functions to respective image collections
+var S2_L1C_Func = S2_L1C.map(addNDWI).map(addNDVI).map(VegMaskL1C).map(WaterMaskL1C).map(CombinedL1CMask);
+
+// Add the individual new bands to the Map
+// NDVI
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDVIVis, 'L1C NDVI');
+// NDWI
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDWIVis, 'L1C NDWI');
+// NDVI Mask
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDVIMaskVis, 'L1C NDVIMask');
+// NDWI Mask
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), NDWIMaskVis, 'L1C NDWIMask');
+// Combo Mask
+Map.addLayer(S2_L1C_Func.filterDate('2022-03-30', '2022-04-01'), L1CMaskVis, 'L1C Mask');
+
+/* Creating a new var to run the mask apply function, because otherwise for some reason it retroactively 
+*  breaks all the earlier separate ND VI/WI masks
+*/
+var S2_L1C_Masked = S2_L1C_Func.map(L1CMask);
+// Clipped hopefully?!
+Map.addLayer(S2_L1C_Masked.filterDate('2022-03-30', '2022-04-01'), rgbVis, 'L1C MaskApplied');
+print(S2_L1C_Func)
+print(S2_L1C_Masked)
