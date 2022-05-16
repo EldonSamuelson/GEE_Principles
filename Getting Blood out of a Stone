@@ -1,0 +1,74 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var ThamesWS = ee.FeatureCollection("users/SeamusWOD/Thames_River_Basin");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+var START_DATE = '2022-01-01';
+var END_DATE = '2022-05-01';
+var FRST_PRVW_DATE = '2022-04-25';
+var LAST_PRVW_DATE = '2022-04-27';
+var BOUNDS = ThamesWS
+
+//masking and copy props
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+  // Bits 10 and 11 are clouds and cirrus, respectively.
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+  // Both flags should be set to zero, indicating clear conditions.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0).and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+   // Applies the cloud masking conditions to the IC, and adds the date of acquisition into each image for easy timeseries organising later
+   return image.updateMask(mask).divide(10000).copyProperties(image, ["system:time_start"]);
+}
+
+var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterDate(START_DATE, END_DATE).filterBounds(BOUNDS).map(maskS2clouds);
+print('S2_L2A_Image Collection', S2_L2A);
+var S2_L2A_Filt = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE);
+print('S2_L2A_IC Filtered', S2_L2A_Filt);
+var S2_L2A_Filt_1st = S2_L2A_Filt.first();
+print ('S2_L2A_Filtered First Element', S2_L2A_Filt_1st);
+// Properties
+var SystemIndex = S2_L2A_Filt.map(function (image) {
+  return image.set('SysIndex', image.toDictionary(['system:index']));
+});
+print('Property keys and values of S2_L2A_Filt_1st', SystemIndex.first());
+var list = SystemIndex.aggregate_array('SysIndex');
+print('The LIST', list);
+var list_1st = list.get(0);
+print('S2_L2A SystemIndex', list_1st);
+var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic();
+print('S2_Mosaic', S2_L2A_Mosaic);
+
+// ## ORIGINAL BELOW ##
+/*
+// Source: https://developers.google.com/earth-engine/apidocs/ee-imagecollection-get
+// A contrived, empty image collection for simple demonstration.
+var col = ee.ImageCollection([]);
+print('Collection without properties', col);
+// Set collection properties using a dictionary.
+col = col.set({
+  project_name: 'biomass_tracking',
+  project_id: 3,
+  plot_ids: ee.Array([7, 11, 20])
+});
+
+// Set collection properties using a series of key-value pairs.
+col = col.set('project_year', 2018,
+              'rgb_vis', 'false_color');
+
+print('Collection with properties', col);
+
+// Get a dictionary of collection property keys and values.
+print('Property keys and values (ee.Dictionary)', col.toDictionary());
+// Get the value of a collection property. To use the result of
+// ee.ImageCollection.get in further computation, you need to cast it to the
+// appropriate class, for example, ee.Number(result) or ee.String(result).
+print('Project ID (ambiguous object)', col.get('project_id'));
+
+// Get the value of a string collection property as an ee.String object.
+print('Project name (ee.String)', col.getString('project_name'));
+
+// Get the value of a numeric collection property as an ee.Number object.
+print('Project year (ee.Number)', col.getNumber('project_year'));
+
+// Get the value of an ee.Array collection property as an ee.Array object.
+print('Plot IDs (ee.Array)', col.getArray('plot_ids'));
+*/
