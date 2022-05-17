@@ -34,7 +34,7 @@ var list = SystemIndex.aggregate_array('SysIndex');
 print('The LIST', list);
 var list_1st = list.get(0);
 print('S2_L2A SystemIndex', list_1st);
-var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic();
+var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
 print('S2_Mosaic', S2_L2A_Mosaic);
 
 // ## ORIGINAL BELOW ##
