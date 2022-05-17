@@ -98,7 +98,7 @@ Export.image.toDrive({
     folder: 'EE_OutputTest', // The destination folder for the imagery in your Account's Google Drive
     scale: 'nominal', // Returns requested image AT TRUE SCALE (i.e. 10m).
     crs: 'EPSG:3857', // The standard GEE and Wider Internet's Web Mercator Projection, WGS84.
-    region: ThamesWS, // The Area of Interest
+    region: Geom, // The Area of Interest
     maxPixels: 1e13,
   });
 
