@@ -53,7 +53,7 @@ Map.addLayer(S2_L2A, rgbVis, 'S2_L2A_IC', false);
 
 // Filtering the timeseries range to just a particular day (i.e. 2022-03-31)
 var S2_L2A_Filt = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE);
-print('S2_L2A_IC Filtered (2022-03-31)', S2_L2A_Filt); // Produces 1 Images/Elements that fit the date
+print('S2_L2A_IC Filtered (2022-03-31)', S2_L2A_Filt); // Produces 13 Images/Elements that fit the date
 // Selecting the first Element of the Filtered IC
 var S2_L2A_Filt_1st = S2_L2A_Filt.first();
 print ('S2_L2A_Filtered First Element', S2_L2A_Filt_1st); // Produces 1 Image (Element 0 of the previous var)
