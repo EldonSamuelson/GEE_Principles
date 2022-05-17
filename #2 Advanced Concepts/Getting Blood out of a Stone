@@ -1,19 +1,30 @@
-/**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var ThamesWS = ee.FeatureCollection("users/SeamusWOD/Thames_River_Basin");
-/***** End of imports. If edited, may not auto-convert in the playground. *****/
+// ### IMPORTED GEOMETRY ###
+var Geom = 
+    /* color: #0b4a8b */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-8.56230636676787, 52.93597609526123],
+          [-8.56230636676787, 52.7520459011725],
+          [-8.378714524116504, 52.7520459011725],
+          [-8.378714524116504, 52.93597609526123]]], null, false);
+
+// Filtering imagery for hypothetical timeseries
 var START_DATE = '2022-01-01';
 var END_DATE = '2022-05-01';
-var FRST_PRVW_DATE = '2022-04-25';
-var LAST_PRVW_DATE = '2022-04-27';
-var BOUNDS = ThamesWS
+// Filtering imagery to display a particular day on the Map.
+var FRST_PRVW_DATE = '2022-03-30';
+var LAST_PRVW_DATE = '2022-04-01';
+// Setting the Area of Interest
+var BOUNDS = Geom;
 
-var rgbVis = {
-  min: 0,
-  max: 0.35,
-  bands: ['B4', 'B3', 'B2'],
-};
+// Centers the Map on the Area of Interest
+Map.centerObject(BOUNDS, 9);
 
-//masking and copy props
+// Sentinel 2 Image Collection and Cloud Masking
 function maskS2clouds(image) {
   var qa = image.select('QA60');
   // Bits 10 and 11 are clouds and cirrus, respectively.
@@ -24,39 +35,75 @@ function maskS2clouds(image) {
    // Applies the cloud masking conditions to the IC, and adds the date of acquisition into each image for easy timeseries organising later
    return image.updateMask(mask).divide(10000).copyProperties(image, ["system:time_start"]);
 }
+var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+            .filterDate(START_DATE, END_DATE)
+            .filterBounds(BOUNDS)
+            .map(maskS2clouds);
+print('S2_L2A_Image Collection', S2_L2A); // Produces 48 Images/Elements 
 
-var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterDate(START_DATE, END_DATE).filterBounds(BOUNDS).map(maskS2clouds);
-print('S2_L2A_Image Collection', S2_L2A);
+// Visualisation settings
+var rgbVis = {
+  min: 0,
+  max: 0.35,
+  bands: ['B4', 'B3', 'B2'],
+};
+
+// Add the Hypothetical timeseries range of imagery to Map (turned off by default because it's intensive)
+Map.addLayer(S2_L2A, rgbVis, 'S2_L2A_IC', false);
+
+// Filtering the timeseries range to just a particular day (i.e. 2022-04-26)
 var S2_L2A_Filt = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE);
-print('S2_L2A_IC Filtered', S2_L2A_Filt);
+print('S2_L2A_IC Filtered (2022-04-26)', S2_L2A_Filt); // Produces 2 Images/Elements that fit the date
+// Selecting the first Element of the Filtered IC
 var S2_L2A_Filt_1st = S2_L2A_Filt.first();
-print ('S2_L2A_Filtered First Element', S2_L2A_Filt_1st);
-// Properties
+print ('S2_L2A_Filtered First Element', S2_L2A_Filt_1st); // Produces 1 Image (Element 0 of the previous var)
+
+// Properties Extraction
+// Pulls out the System:Index Property of every element in the Filtered IC, puts it in a dictionary, and inserts it into the Properties 
 var SystemIndex = S2_L2A_Filt.map(function (image) {
   return image.set('SysIndex', image.toDictionary(['system:index']));
 });
-print('Property keys and values of S2_L2A_Filt_1st', SystemIndex.first());
-var list = SystemIndex.aggregate_array('SysIndex');
-print('The LIST', list);
-var list_1st = list.get(0);
-print('S2_L2A SystemIndex', list_1st);
-var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
-print('S2_Mosaic w/ Properties of the S2_L2A_Filtered_1st', S2_L2A_Mosaic);
+print('Property keys and values of S2_L2A_Filt', SystemIndex); // Returns the same 8 Images/Elements, but now with a 'SysIndex' Object in each Element
 
-var date = ee.Date(S2_L2A_Mosaic.get('system:time_start')).format('YYYY-MM-DD');
-var date = date.getInfo();
+// Aggregates the Dictionary into an Array
+var list = SystemIndex.aggregate_array('SysIndex');
+print('Agg. Array List', list); // Produces the List with only the values of the Dictionary from each Element
+// Gets only the first Element of the List
+var list_1st = list.get(0);
+print('S2_L2A_IC, The First System:Index', list_1st); // Prints the first (0) Elements' System:Index Property. 
+
+//Mosaic the S2_L2A_IC that was filtered to the day (Line 39), and gives it the property of the first Element of the List (Line 56)
+var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+print('S2_Mosaic w/ Properties of the S2_L2A_Filtered_1st', S2_L2A_Mosaic); // The Mosaic now was the same System:Index of the First Element in the IC's List
+// Add the Mosaic of one day's imagery to Map
+Map.addLayer(S2_L2A_Mosaic, rgbVis, 'S2_L2A_Mosaic_2022_04_26');
+
+// Gets the System:Index of the Mosaic as a String
+var index = S2_L2A_Mosaic.get('system:index');
+print('System Index in String',index); // "20220426T110631_20220426T111454_T30UWB"
+/* Sentinel 2 Imagery follows this naming convention:
+*  START TIME:'(YYYYMMDD)T(HHMMSS)_' + END TIME:'(YYYYMMDD)T(HHMMSS)_' + UTM MGRS ID: 'T00ABC'
+*  So slicing it to the first 13 characters gives you the swath start time, to the minute
+*  This is extracted using getInfo() which can then be put into the image name.
+*/
+var index = index.getInfo().slice(0,13);
+print('Sliced System:Index', index); // "20220426T1106" (i.e. 11:06 AM on April 26th, 2022)
+
+// Just to demonstrate the System:Index being added to the Exported name.
+// 'Run' to see the other properties are correct before confirmation of download
+// ### DON'T RUN THE TASK ON THE PROPERTIES MENU ### It will be very large.
 Export.image.toDrive({
-    image: S2_L2A_Mosaic.visualize(rgbVis),
-    description: 'S2_L2A_Mosaic of a certain date',
-    fileNamePrefix: 'S2_L2A_'+ date, 
-    folder: 'EE_OutputTest',
-    scale: nominal,
-    region: ThamesWS,
+    image: S2_L2A_Mosaic.visualize(rgbVis), // .visualize keeps the visualisation parameters for the image for export
+    description: 'S2_L2A_'+ index, // The Tasks will show a "S2_L2A_20220426T1106" Download available
+    folder: 'EE_OutputTest', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE (i.e. 10m).
+    crs: 'EPSG:3857', // The standard GEE and Wider Internet's Web Mercator Projection, WGS84.
+    region: ThamesWS, // The Area of Interest
     maxPixels: 1e13,
   });
 
 
-// ## ORIGINAL BELOW ##
+// ## THE ORIGINAL GOOGLE DOCUMENTATION BELOW ##
 /*
 // Source: https://developers.google.com/earth-engine/apidocs/ee-imagecollection-get
 // A contrived, empty image collection for simple demonstration.
