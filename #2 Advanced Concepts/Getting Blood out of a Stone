@@ -7,6 +7,12 @@ var FRST_PRVW_DATE = '2022-04-25';
 var LAST_PRVW_DATE = '2022-04-27';
 var BOUNDS = ThamesWS
 
+var rgbVis = {
+  min: 0,
+  max: 0.35,
+  bands: ['B4', 'B3', 'B2'],
+};
+
 //masking and copy props
 function maskS2clouds(image) {
   var qa = image.select('QA60');
@@ -35,7 +41,20 @@ print('The LIST', list);
 var list_1st = list.get(0);
 print('S2_L2A SystemIndex', list_1st);
 var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
-print('S2_Mosaic', S2_L2A_Mosaic);
+print('S2_Mosaic w/ Properties of the S2_L2A_Filtered_1st', S2_L2A_Mosaic);
+
+var date = ee.Date(S2_L2A_Mosaic.get('system:time_start')).format('YYYY-MM-DD');
+var date = date.getInfo();
+Export.image.toDrive({
+    image: S2_L2A_Mosaic.visualize(rgbVis),
+    description: 'S2_L2A_Mosaic of a certain date',
+    fileNamePrefix: 'S2_L2A_'+ date, 
+    folder: 'EE_OutputTest',
+    scale: nominal,
+    region: ThamesWS,
+    maxPixels: 1e13,
+  });
+
 
 // ## ORIGINAL BELOW ##
 /*
