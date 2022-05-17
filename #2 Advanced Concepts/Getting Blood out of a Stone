@@ -7,11 +7,11 @@ var Geom =
       }
     ] */
     ee.Geometry.Polygon(
-        [[[-8.56230636676787, 52.93597609526123],
-          [-8.56230636676787, 52.7520459011725],
-          [-8.378714524116504, 52.7520459011725],
-          [-8.378714524116504, 52.93597609526123]]], null, false);
-
+        [[[-11.11113449176787, 54.43227206644482],
+          [-11.11113449176787, 51.305678054127945],
+          [-8.093069992866504, 51.305678054127945],
+          [-8.093069992866504, 54.43227206644482]]], null, false);
+          
 // Filtering imagery for hypothetical timeseries
 var START_DATE = '2022-01-01';
 var END_DATE = '2022-05-01';
@@ -22,7 +22,7 @@ var LAST_PRVW_DATE = '2022-04-01';
 var BOUNDS = Geom;
 
 // Centers the Map on the Area of Interest
-Map.centerObject(BOUNDS, 9);
+Map.centerObject(BOUNDS, 8);
 
 // Sentinel 2 Image Collection and Cloud Masking
 function maskS2clouds(image) {
@@ -39,7 +39,7 @@ var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
             .filterDate(START_DATE, END_DATE)
             .filterBounds(BOUNDS)
             .map(maskS2clouds);
-print('S2_L2A_Image Collection', S2_L2A); // Produces 48 Images/Elements 
+print('S2_L2A_Image Collection', S2_L2A); // Produces 1066 Images/Elements 
 
 // Visualisation settings
 var rgbVis = {
@@ -51,9 +51,9 @@ var rgbVis = {
 // Add the Hypothetical timeseries range of imagery to Map (turned off by default because it's intensive)
 Map.addLayer(S2_L2A, rgbVis, 'S2_L2A_IC', false);
 
-// Filtering the timeseries range to just a particular day (i.e. 2022-04-26)
+// Filtering the timeseries range to just a particular day (i.e. 2022-03-31)
 var S2_L2A_Filt = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE);
-print('S2_L2A_IC Filtered (2022-04-26)', S2_L2A_Filt); // Produces 2 Images/Elements that fit the date
+print('S2_L2A_IC Filtered (2022-03-31)', S2_L2A_Filt); // Produces 1 Images/Elements that fit the date
 // Selecting the first Element of the Filtered IC
 var S2_L2A_Filt_1st = S2_L2A_Filt.first();
 print ('S2_L2A_Filtered First Element', S2_L2A_Filt_1st); // Produces 1 Image (Element 0 of the previous var)
@@ -76,25 +76,25 @@ print('S2_L2A_IC, The First System:Index', list_1st); // Prints the first (0) El
 var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
 print('S2_Mosaic w/ Properties of the S2_L2A_Filtered_1st', S2_L2A_Mosaic); // The Mosaic now was the same System:Index of the First Element in the IC's List
 // Add the Mosaic of one day's imagery to Map
-Map.addLayer(S2_L2A_Mosaic, rgbVis, 'S2_L2A_Mosaic_2022_04_26');
+Map.addLayer(S2_L2A_Mosaic, rgbVis, 'S2_L2A_Mosaic_2022_03_31');
 
 // Gets the System:Index of the Mosaic as a String
 var index = S2_L2A_Mosaic.get('system:index');
-print('System Index in String',index); // "20220426T110631_20220426T111454_T30UWB"
+print('System Index in String',index); // "20220331T114349_20220331T114345_T28UGB"
 /* Sentinel 2 Imagery follows this naming convention:
 *  START TIME:'(YYYYMMDD)T(HHMMSS)_' + END TIME:'(YYYYMMDD)T(HHMMSS)_' + UTM MGRS ID: 'T00ABC'
 *  So slicing it to the first 13 characters gives you the swath start time, to the minute
 *  This is extracted using getInfo() which can then be put into the image name.
 */
 var index = index.getInfo().slice(0,13);
-print('Sliced System:Index', index); // "20220426T1106" (i.e. 11:06 AM on April 26th, 2022)
+print('Sliced System:Index', index); // "20220331T1143" (i.e. 11:43 AM on March 31st, 2022)
 
 // Just to demonstrate the System:Index being added to the Exported name.
 // 'Run' to see the other properties are correct before confirmation of download
-// ### DON'T RUN THE TASK ON THE PROPERTIES MENU ### It will be very large.
+// ### DON'T RUN THE TASK ON THE INITIATE EXPORT MENU ### It will be very large.
 Export.image.toDrive({
     image: S2_L2A_Mosaic.visualize(rgbVis), // .visualize keeps the visualisation parameters for the image for export
-    description: 'S2_L2A_'+ index, // The Tasks will show a "S2_L2A_20220426T1106" Download available
+    description: 'S2_L2A_'+ index, // The Tasks will show a "S2_L2A_20220331T1143" Download available
     folder: 'EE_OutputTest', // The destination folder for the imagery in your Account's Google Drive
     scale: 'nominal', // Returns requested image AT TRUE SCALE (i.e. 10m).
     crs: 'EPSG:3857', // The standard GEE and Wider Internet's Web Mercator Projection, WGS84.
