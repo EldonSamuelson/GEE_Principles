@@ -20,11 +20,11 @@ Map.onClick(function(coords) {
             // 4: {color: 'D3D3D3', lineWidth: 1},  // r_S2
           }
         });
-    panel.widgets().set(0, chart1);
+    Chartpanel.widgets().set(0, chart1);
 })
-var panel = ui.Panel({style: {
+var Chartpanel = ui.Panel({style: {
   width: '30%',
-  height: '30%',
+  height: '45%',
   position: "top-left"}})
     .add(ui.Label('Click on the map to generate historical chart'))
-Map.add(panel)
+Map.add(Chartpanel)
