@@ -1,0 +1,30 @@
+// Screen Viewcontrols
+Map.style().set('cursor', 'crosshair');
+// (all, layerList, zoomControl, scaleControl, mapTypeControl, fullscreenControl, drawingToolsControl)
+// ('all' is overridden by the individual control options. i.e. 'False, false, true' will show the zoom controls only)
+Map.setControlVisibility(false);
+//Map.zoomTools().setshown(false);
+Map.onClick(function(coords) {
+    var location = 'lon: ' + coords.lon.toFixed(4) + ' ' +
+                  'lat: ' + coords.lat.toFixed(4)
+    var point = ee.Geometry.Point(coords.lon, coords.lat);
+    // Map.layers().set(1, ui.Map.Layer(point, {color: '0000FF'}));
+    var chart1 = ui.Chart.image.series(IC_ALL,point)
+        .setOptions({
+          title: "EVI" + " | lon/lat: " + coords.lon.toFixed(4) + ' / ' + coords.lat.toFixed(4),
+          vAxis: {title: "EVI", viewWindow : {max : 1, min : 0}},
+          legend: "right",
+          series: {
+          0: {color: 'ef00ff', lineWidth: 1, pointSize: 0}, // burn
+            1: {color: '000000', lineWidth: 1, pointSize: 0},  // r_MOD
+            // 4: {color: 'D3D3D3', lineWidth: 1},  // r_S2
+          }
+        });
+    panel.widgets().set(0, chart1);
+})
+var panel = ui.Panel({style: {
+  width: '30%',
+  height: '30%',
+  position: "top-left"}})
+    .add(ui.Label('Click on the map to generate historical chart'))
+Map.add(panel)
