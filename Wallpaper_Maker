@@ -1,11 +1,7 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var geometry = 
     /* color: #d63000 */
-    /* displayProperties: [
-      {
-        "type": "rectangle"
-      }
-    ] */
+    /* shown: false */
     ee.Geometry.Polygon(
         [[[-10.910132824728466, 52.45508443049728],
           [-10.910132824728466, 51.88318371319696],
@@ -20,7 +16,7 @@ var geometry =
 // ## CLOUD ##  
 //    Format: %'0-000'. Numbers only without quotes
 // # MIN CLOUD PERCENT #
-var MIN_CLOUD_PERCENT = 20;
+var MIN_CLOUD_PERCENT = 10;
 /*   Deals with TILES - Tiles with >X% of cloud by area are filtered out
 *    This reduces the frequency of available images, by removing ones that might not be useful for further analysis
 *    Set to 100 to not filter at all, and put the heavy lifting onto Masking cloud probability instead
@@ -159,31 +155,6 @@ var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
                   .map(function(image) {
                     return image.clip(BOUNDS);
                   });
-                  
-                  /*
-                  *  Load Sentinel-2 'Harmonized' Top Of Atomsphere (L1C) data
-                  *  Dataset details: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_HARMONIZED
-                  *  HARMONIZED makes sure scenes after 25 January 2022 have the same DN ranges as older L1C scenes.
-                  *  Harmonised L1C Data is available from Sentinel 2 Launch (2015-06-23) onwards.
-                  */
-var S2_L1C = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
-                  // Filter by Date Period (YYYY-MM-DD)
-                  .filterDate(START_DATE, END_DATE)
-                  /* 
-                  *  Pre-filter to get less cloudy granules
-                  *  'Default' is aiming for 10% cloud
-                  *  Dependent on availability of cloud-free imagery in the time period set
-                  *  Longer periods will take longer to load
-                  */
-                  .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', MIN_CLOUD_PERCENT))
-                  // Select only image tiles that fall within the Geometry (Region of Interest) to reduce processing time
-                  .filterBounds(BOUNDS)
-                  // Applies the S2 Cloud Masking Function to each image in the IC
-                  .map(maskS2clouds)
-                  // Clips each image in the IC by the Bounds to reduce processing time further
-                  .map(function(image) {
-                    return image.clip(BOUNDS);
-                  });
 
 // ## ALTERNATE L2A MASKING ##
 var S2_CloudProb = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY');
@@ -215,13 +186,10 @@ var S2CloudMasked =
 print('Time, Date, Bounding, Clipping, and Cloud Tile Filtering parameters set for Imagery');
 
 // Map Collections to View
-print(S2_L1C);
 print(S2_L2A);
 print(S2CloudMasked);
 Map.addLayer(S2CloudMasked, RGBVis,'L2A ClearSkies');
-//Map.addLayer(S2_L2A,RGBVis,'L2A');
-//Map.addLayer(S2_L2A,NIRVis,'L2A_Aerochrome');
-//Map.addLayer(S2_L1C,RGBVis,'L1C');
+Map.addLayer(S2CloudMasked, NIRVis,'L2A Aerochrome');
 
 // ###############
 // ### BUTTONS ###
@@ -250,13 +218,10 @@ var list = SystemIndex.aggregate_array('SysIndex');
 var list_1st = list.get(0);
 //    # MOSAICING #
 //    Mosaics the current filterered view into a single image, for exporting
-var S2_L2A_Mosaic = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
-var S2_L1C_Mosaic = S2_L1C.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var S2_L2A_Mosaic = S2_CloudMasked.mosaic().set(list_1st);
 // Display the Layers that are to be exported (for final confirmation of download)
-Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), rgbVis,'L2AClear Export')
 Map.addLayer(S2_L2A_Mosaic, RGBVis, 'L2A Export');
 Map.addLayer(S2_L2A_Mosiac, NIRVis, 'L2A Aerochrome Export');
-Map.addLayer(S2_L1C_Mosaic, RGBVis, 'L1C Export');
 
 //    # PROPERTY APPLICATION #
 // Gets the System:Index of the Mosaic as a String
@@ -283,15 +248,6 @@ Export.image.toDrive({
     image: S2_L2A_Mosaic.visualize(NIRVis), // Sets the image to keep the current Visualisation parameters
     region: Demogeom,
     description: 'Aerochrome_' + index, 
-    folder: 'GEETestDemo', 
-    scale: 'nominal', 
-    crs: 'EPSG:3857',
-    maxPixels: 1e13,
-});
-Export.image.toDrive({
-    image: S2_L1C_Mosaic.visualize(RGBVis), // Sets the image to keep the current Visualisation parameters
-    region: Demogeom,
-    description: 'Truechrome_' + index, 
     folder: 'GEETestDemo', 
     scale: 'nominal', 
     crs: 'EPSG:3857',
