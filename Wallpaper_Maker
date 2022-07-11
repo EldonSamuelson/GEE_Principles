@@ -89,7 +89,7 @@ var RGBVis = {
 // Falsecolour (IR-G-B) Visualisation (for S2 - Not in use, but available)
 var NIRVis = {
   min: 0,
-  max: 0.35,
+  max: 0.5,
   bands: ['B8', 'B3', 'B2'],
 };
 // NDWI Visualisation
