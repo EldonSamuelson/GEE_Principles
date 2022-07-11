@@ -218,7 +218,7 @@ var list = SystemIndex.aggregate_array('SysIndex');
 var list_1st = list.get(0);
 //    # MOSAICING #
 //    Mosaics the current filterered view into a single image, for exporting
-var S2_L2A_Mosaic = S2_CloudMasked.mosaic().set(list_1st);
+var S2_L2A_Mosaic = S2CloudMasked.mosaic().set(list_1st);
 // Display the Layers that are to be exported (for final confirmation of download)
 Map.addLayer(S2_L2A_Mosaic, RGBVis, 'L2A Export');
 Map.addLayer(S2_L2A_Mosiac, NIRVis, 'L2A Aerochrome Export');
