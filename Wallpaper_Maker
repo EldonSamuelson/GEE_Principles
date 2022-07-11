@@ -41,8 +41,8 @@ var BOUNDS = geometry;
 //    Based on GEE's 1-24 level system. Larger number = More Zoom
 var ZOOM = 11;
 // ## PREVIEW DATES ## 
-var FRST_PRVW_DATE = '2022-04-25';
-var LAST_PRVW_DATE = '2022-04-27';
+var FRST_PRVW_DATE = '2021-07-16';
+var LAST_PRVW_DATE = '2021-07-18';
 /*    For displaying a particular date on the map, as otherwise the Layers don't match
 *     To display a particular image on a particular time, select the day before and after it
 *     i.e. "2022-03-31" requires the filter to be set between 03-30 and 04-01
@@ -221,7 +221,7 @@ var list_1st = list.get(0);
 var S2_L2A_Mosaic = S2CloudMasked.mosaic().set(list_1st);
 // Display the Layers that are to be exported (for final confirmation of download)
 Map.addLayer(S2_L2A_Mosaic, RGBVis, 'L2A Export');
-Map.addLayer(S2_L2A_Mosiac, NIRVis, 'L2A Aerochrome Export');
+Map.addLayer(S2_L2A_Mosaic, NIRVis, 'L2A Aerochrome Export');
 
 //    # PROPERTY APPLICATION #
 // Gets the System:Index of the Mosaic as a String
@@ -236,22 +236,13 @@ var index = index.getInfo().slice(0,13);
 //    # EXPORTS #   
 Export.image.toDrive({
     image: S2_L2A_Mosaic.visualize(RGBVis), // Sets the image to keep the current Visualisation parameters
-    region: Demogeom, // The area of interest
+    region: geometry, // The area of interest
     description: 'Surfachrome_' + index, // Sets the name of the image(s) with the date
     folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
     scale: 'nominal', // Returns requested image AT TRUE SCALE
     crs: 'EPSG:3857', // CRS - This is the standard GEE Web Mercator projection, WGS84.
     maxPixels: 1e13, // Max Pixel amount - always required as the default limit is very small
     fileFormat: 'GeoTIFF'
-});
-Export.image.toDrive({
-    image: S2_L2A_Mosaic.visualize(NIRVis), // Sets the image to keep the current Visualisation parameters
-    region: Demogeom,
-    description: 'Aerochrome_' + index, 
-    folder: 'GEETestDemo', 
-    scale: 'nominal', 
-    crs: 'EPSG:3857',
-    maxPixels: 1e13,
 });
 print('Please check the Tasks tab to confirm Export');
   }
