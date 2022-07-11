@@ -1,11 +1,7 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var geometry = 
     /* color: #d63000 */
-    /* displayProperties: [
-      {
-        "type": "rectangle"
-      }
-    ] */
+    /* shown: false */
     ee.Geometry.Polygon(
         [[[-10.634787976095154, 52.36276418669962],
           [-10.634787976095154, 52.06658513941318],
