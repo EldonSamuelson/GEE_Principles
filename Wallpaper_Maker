@@ -201,7 +201,7 @@ var ButtonPanel = ui.Panel({
 });
 // ## EXPORT LAYERS BUTTON ##
 ButtonPanel.add(ui.Button({  
-  label: 'Export Images',
+  label: 'Export Image',
   style: {stretch: 'horizontal', Color: '#1e90ff'},
   onClick: function() {
 //    # PROPERTY EXTRACTION # 
@@ -237,7 +237,7 @@ var index = index.getInfo().slice(0,13);
 Export.image.toDrive({
     image: S2_L2A_Mosaic.visualize(RGBVis), // Sets the image to keep the current Visualisation parameters
     region: geometry, // The area of interest
-    description: 'Surfachrome_' + index, // Sets the name of the image(s) with the date
+    description: 'Surface-chrome_' + index, // Sets the name of the image(s) with the date
     folder: 'GEE_Wallpapers', // The destination folder for the imagery in your Account's Google Drive
     scale: 'nominal', // Returns requested image AT TRUE SCALE
     crs: 'EPSG:3857', // CRS - This is the standard GEE Web Mercator projection, WGS84.
