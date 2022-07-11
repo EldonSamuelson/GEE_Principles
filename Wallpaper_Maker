@@ -1,12 +1,9 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var geometry = 
-    /* color: #d63000 */
-    /* shown: false */
-    ee.Geometry.Polygon(
-        [[[-10.634787976095154, 52.36276418669962],
-          [-10.634787976095154, 52.06658513941318],
-          [-9.585593640157654, 52.06658513941318],
-          [-9.585593640157654, 52.36276418669962]]], null, false);
+var geometry = /* color: #d63000 */ee.Geometry.Polygon(
+        [[[-10.634787976095154, 52.314517576027086],
+          [-10.634787976095154, 52.018015861872854],
+          [-9.585593640157654, 52.018015861872854],
+          [-9.585593640157654, 52.314517576027086]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
@@ -16,7 +13,7 @@ var geometry =
 // ## CLOUD ##  
 //    Format: %'0-000'. Numbers only without quotes
 // # MIN CLOUD PERCENT #
-var MIN_CLOUD_PERCENT = 100;
+var MIN_CLOUD_PERCENT = 20;
 /*   Deals with TILES - Tiles with >X% of cloud by area are filtered out
 *    This reduces the frequency of available images, by removing ones that might not be useful for further analysis
 *    Set to 100 to not filter at all, and put the heavy lifting onto Masking cloud probability instead
