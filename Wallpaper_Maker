@@ -1,9 +1,16 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var geometry = /* color: #d63000 */ee.Geometry.Polygon(
-        [[[-10.634787976095154, 52.314517576027086],
-          [-10.634787976095154, 52.018015861872854],
-          [-9.585593640157654, 52.018015861872854],
-          [-9.585593640157654, 52.314517576027086]]], null, false);
+var geometry = 
+    /* color: #d63000 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-10.910132824728466, 52.45508443049728],
+          [-10.910132824728466, 51.88318371319696],
+          [-8.928473889181591, 51.88318371319696],
+          [-8.928473889181591, 52.45508443049728]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
