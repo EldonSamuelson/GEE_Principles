@@ -1,0 +1,1335 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var Colombia_AOI = ee.FeatureCollection("users/SeamusWOD/Colombia_AoI"),
+    ThamesWS = ee.FeatureCollection("users/SeamusWOD/Thames_River_Basin"),
+    Demogeom = 
+    /* color: #d63000 */
+    /* shown: false */
+    ee.Geometry.Polygon(
+        [[[0.2749668548990192, 51.475193433410396],
+          [0.2749668548990192, 51.4339036896155],
+          [0.49589504703769105, 51.4339036896155],
+          [0.49589504703769105, 51.475193433410396]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+/* #### CREDITS ####
+*  Name:    Sentinel-2 Water Quality Indicator Script (S2 WQIS) for Google Earth Engine 
+*  Version: 0.95.43
+*  Date:    2022-06-01
+*  Affiliation: Aquascope Solutions Ltd., UK
+*  Author:  Séamus O'Donnell
+*  Inspired by SE2WAQ, see end for further acknowledgements and references
+*/
+
+// #### SCRIPT START ####
+// ##################
+// ### PARAMETERS ###
+// ##################
+//     These apply the parameters to all imagery, to stop redundant data entry
+// ## CLOUD ##  
+//    Format: %'0-000'. Numbers only without quotes
+// # MIN CLOUD PERCENT #
+var MIN_CLOUD_PERCENT = 100;
+/*   Deals with TILES - Tiles with >X% of cloud by area are filtered out
+*    This reduces the frequency of available images, by removing ones that might not be useful for further analysis
+*    Set to 100 to not filter at all, and put the heavy lifting onto Masking cloud probability instead
+*/
+// # MAX CLOUD PROBABILITY #
+var MAX_CLOUD_PROB = 18;
+/*   Deals with clouds IN-IMAGE - Areas that have >Y% probability of being a cloud are masked out within the tile
+*    This maximises frequency of images, but at the cost of requiring more processing to analyse every available image
+*    Lower numbers increases the range of criteria that match 'clouds' to mask 
+*    E.g. 100% will miss cloud edges & cirrus, 10% will start masking out roofing and water bodies. 20 is a compromise 
+*/
+// ## START/END DATE ## 
+//    Format: 'YYYY-MM-DD', include the quotes. This for the time series range.
+var START_DATE = '2022-01-01';
+var END_DATE = '2022-06-01';
+// ## BOUNDS ## 
+var BOUNDS = ThamesWS;
+//    Format: Either be a drawn geometry shape within GEE, or an imported SHP file
+//    See: https://developers.google.com/earth-engine/guides/table_upload#upload-a-shapefile
+
+// ## ZOOM ## 
+//    Based on GEE's 1-24 level system. Larger number = More Zoom
+var ZOOM = 9;
+// ## PREVIEW DATES ## 
+var FRST_PRVW_DATE = '2022-04-25';
+var LAST_PRVW_DATE = '2022-04-27';
+/*    For displaying a particular date on the map, as otherwise the Layers don't match
+*     To display a particular image on a particular time, select the day before and after it
+*     i.e. "2022-03-31" requires the filter to be set between 03-30 and 04-01
+*    This ONLY applies to displayed imagery on the map - The entire time series data is still exportable
+*/
+// PARAMETERS END - You don't need to change anything below this line to make the script function
+
+// ############
+// ### MISC ###
+// ############
+// Prints out the Parameters set
+print('Running parameters set on Lines 10-50:');
+print('Filtering available Sentinel 2 imagery between ' + START_DATE + ' & ' + END_DATE + '.');
+print(' Tiles are filtered by '+ MIN_CLOUD_PERCENT + '%, and pixels matching >' + MAX_CLOUD_PROB + '% of being clouds, are masked' );
+print('Map will display imagery from between ' + FRST_PRVW_DATE + ' & ' + LAST_PRVW_DATE + '.');
+// Centre based on the Geometry (Region of Interest, Zoom Level)
+Map.centerObject(BOUNDS, ZOOM, print('Map centered on Region of Interest'));
+// Sets the default Map to Terrain mode (Roadmap overlain with hillsahde) 
+Map.setOptions("TERRAIN");
+
+// #################################
+// ### PALETTES & VISUALISATIONS ###
+// #################################
+// ## EEPALETTES ##
+/*    Required for most layer visualisations
+*     See https://github.com/gee-community/ee-palettes for more information
+*     IF IT FAILS TO LOAD the PALETTES, LOAD THIS URL FIRST, THEN REFRESH THE PAGE: 
+*     (https://code.earthengine.google.com/?accept_repo=users/gena/packages)
+*/
+var palettes = require('users/gena/packages:palettes');
+// NDWI palette 
+var NDWIPalette = palettes.cmocean.Ice[7].reverse();
+// NDVI palette
+var NDVIPalette = palettes.colorbrewer.RdYlGn[10];
+// Chl_a palette
+var ChlaPalette = palettes.cmocean.Algae[7];
+// CyanoB palette
+var CyanoBPalette = palettes.colorbrewer.PuBuGn[9].slice(2,9);
+// Turb palette
+var TurbPalette = palettes.cmocean.Turbid[7];
+// CDOM palette
+var CDOMPalette = palettes.cmocean.Matter[7];
+// DOC palette
+var DOCPalette = palettes.kovesi.diverging_rainbow_bgymr_45_85_c67[7];
+// TWC palette
+var TWCPalette = palettes.matplotlib.viridis[7];
+// TSM palette
+var TSMPalette = palettes.cmocean.Amp[7];
+// ## VISUALISATIONS ##
+// # UNMODIFIABLE #
+//   Don't change these    
+// Truecolour (R-G-B) Visualisation (for Sentinel 2 Imagery only)
+var rgbVis = {
+  min: 0,
+  max: 0.35,
+  bands: ['B4', 'B3', 'B2'],
+};
+// Falsecolour (IR-G-B) Visualisation (for S2 - Not in use, but available)
+var NIRVis = {
+  min: 0,
+  max: 0.35,
+  bands: ['B8', 'B3', 'B2'],
+};
+// NDWI Visualisation
+var NDWIVis = {
+  min: -1,
+  max: 1,
+  bands: ['NDWI'],
+  palette: NDWIPalette
+};
+// NDVI Visualisation
+var NDVIVis = {
+  min: -1,
+  max: 1,
+  bands: ['NDVI'],
+  palette: NDVIPalette
+};
+// NDVI Mask Visualisation
+var NDVIMaskVis = {
+  min: 0,       // Land Areas
+  max: 1,       // Other Areas
+  bands: ['NDVI_Mask'],
+  palette: ['cccccc','088300'],
+  opacity: 0.65
+};
+// NDWI Mask Visualisation
+var NDWIMaskVis = {
+  min: 0,       // Land and Non-Water Areas
+  max: 1,       // Water Areas
+  bands: ['NDWI_Mask'],
+  palette: ['cccccc','0000ff'],
+  opacity: 0.65
+};
+// L1C Water/Veg Mask Visualisation
+var L1CMaskVis = {
+  min: 0,       // Land and Non-Water Areas
+  max: 1,       // Water Areas
+  bands: ['L1CMask'],
+  palette: ['cccccc','f90000'],
+  opacity: 0.65
+};
+// L2A Water/Veg Mask Visualisation
+var L2AMaskVis = {
+  min: 0,       // Land and Non-Water Areas
+  max: 1,       // Water Areas
+  bands: ['L2AMask'],
+  palette: ['cccccc','f90000'],
+  opacity: 0.65
+};
+// # MODIFIABLE #
+//   The Min/Max values can be modified depending on the area in question
+//   Best to visualise them first through the layer settings menu before making permanent changes 
+// L2A Water Quality Indicators
+// Chlorophyll_a (Chla) Visualisation
+var ChlaVis = {
+  bands: ['ChlA'],
+  min: 0, 
+  max: 150, 
+  palette: ChlaPalette
+};
+// Cyanobacteria (CyanoB) Visualisation
+var CyanoBVis = {
+  bands: ['CyanoB'],
+  min: 0, 
+  max: 1750, 
+  palette: CyanoBPalette
+};
+// Turbidity (Turb) Visualisation
+var TurbVis = {
+  bands: ['Turbidity NTU'],
+  min: 0, 
+  max: 30, 
+  palette: TurbPalette
+};
+// Total Suspended Matter (TSM) Visualisation
+var TSMVis = {
+  bands: ['TSM'],
+  min: 0,
+  max: 150,
+  palette: TSMPalette
+};
+// L1C Water Quality Indicators
+// Coloured Dissolved Organic Matter (CDOM) Visualisation
+var CDOMVis = {
+  bands: ['CDOM'],
+  min: 0, 
+  max: 30, 
+  palette: CDOMPalette
+};
+// Dissolved Organic Carbon (DOC) Visualisation
+var DOCVis = {
+  bands: ['DOC'],
+  min: 0, 
+  max: 25, 
+  palette: DOCPalette
+};
+// True Water Colour (TWC) Visualisation
+var TWCVis = {
+  bands: ['TWC mgPt-Co/L'],
+  min: 0, 
+  max: 300, 
+  palette: TWCPalette
+};
+
+// #####################
+// ### CLOUD MASKING ###
+// #####################
+/*     Sentinel 2 Cloud Masking Function using the QA_60m Cloud Mask Band
+ *     @param {ee.Image} image Sentinel-2 image
+ *     @return {ee.Image} cloud masked Sentinel-2 image
+ *     (Applies to L1C and L2A Imagery)
+ */
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+  // Bits 10 and 11 are clouds and cirrus, respectively.
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+  // Both flags should be set to zero, indicating clear conditions.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0).and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+   // Applies the cloud masking conditions to the IC, and adds the date of acquisition into each image for easy timeseries organising later
+   return image.updateMask(mask).divide(10000).copyProperties(image, ["system:time_start"]);
+}
+print('Sentinel 2 Cloud Mask Function Complete');
+
+// #########################
+// ### IMAGE COLLECTIONS ###
+// #########################
+//Load and Map L1C/L2A imagery with the filter parameters applied
+                 /*
+                  *  Load Sentinel-2 'Harmonized' Bottom Of Atomsphere (L2A) data
+                  *  Dataset details: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_SR_HARMONIZED
+                  *  HARMONIZED makes sure scenes after 25 January 2022 have the same DN ranges as older L2A scenes.
+                  *  Data is limited to 2017-03-28 onwards. (i.e. older data has to come from non-harmonised datasets)
+                  */
+var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+                  // Filter by Date Period (YYYY-MM-DD)
+                  .filterDate(START_DATE, END_DATE)
+                  /* 
+                  *  Pre-filter to get less cloudy granules
+                  *  'Default' is aiming for 10% cloud
+                  *  Dependent on availability of cloud-free imagery in the time period set
+                  *  Longer periods will take longer to load
+                  */
+                  .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', MIN_CLOUD_PERCENT))
+                  // Select only image tiles that fall within the Geometry (Region of Interest) to reduce processing time
+                  .filterBounds(BOUNDS)
+                  // Applies the S2 Cloud Masking Function to each image in the IC
+                  .map(maskS2clouds)
+                  // Clips each image in the IC by the Bounds to reduce processing time further
+                  .map(function(image) {
+                    return image.clip(BOUNDS);
+                  });
+                  
+                  /*
+                  *  Load Sentinel-2 'Harmonized' Top Of Atomsphere (L1C) data
+                  *  Dataset details: https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S2_HARMONIZED
+                  *  HARMONIZED makes sure scenes after 25 January 2022 have the same DN ranges as older L1C scenes.
+                  *  Harmonised L1C Data is available from Sentinel 2 Launch (2015-06-23) onwards.
+                  */
+var S2_L1C = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
+                  // Filter by Date Period (YYYY-MM-DD)
+                  .filterDate(START_DATE, END_DATE)
+                  /* 
+                  *  Pre-filter to get less cloudy granules
+                  *  'Default' is aiming for 10% cloud
+                  *  Dependent on availability of cloud-free imagery in the time period set
+                  *  Longer periods will take longer to load
+                  */
+                  .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', MIN_CLOUD_PERCENT))
+                  // Select only image tiles that fall within the Geometry (Region of Interest) to reduce processing time
+                  .filterBounds(BOUNDS)
+                  // Applies the S2 Cloud Masking Function to each image in the IC
+                  .map(maskS2clouds)
+                  // Clips each image in the IC by the Bounds to reduce processing time further
+                  .map(function(image) {
+                    return image.clip(BOUNDS);
+                  });
+
+// ## ALTERNATE L2A MASKING ##
+var S2_CloudProb = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY');
+function maskClouds(image) {
+  var clouds = ee.Image(image.get('cloud_mask')).select('probability');
+  var isNotCloud = clouds.lt(MAX_CLOUD_PROB);
+  return image.updateMask(isNotCloud);//.divide(10000).copyProperties(image, ["system:time_start"]);
+}
+// The masks for the 10m bands sometimes do not exclude bad data at
+// scene edges, so this applies masks from the 20m and 60m bands as well.
+function maskEdges(s2_image) {
+  return s2_image.updateMask(
+      s2_image.select('B8A').mask().updateMask(s2_image.select('B9').mask()));
+}
+// Filter input collections by desired data range and region.
+var criteria = ee.Filter.and(
+    ee.Filter.bounds(BOUNDS), ee.Filter.date(START_DATE, END_DATE));
+S2_L2A = S2_L2A.filter(criteria).map(maskEdges);
+S2_CloudProb = S2_CloudProb.filter(criteria);
+// Join S2 SR with cloud probability dataset to add cloud mask.
+var S2SRWithCloudMask = ee.Join.saveFirst('cloud_mask').apply({
+  primary: S2_L2A,
+  secondary: S2_CloudProb,
+  condition:
+      ee.Filter.equals({leftField: 'system:index', rightField: 'system:index'})
+});
+var S2CloudMasked =
+    ee.ImageCollection(S2SRWithCloudMask).map(maskClouds);
+print('Time, Date, Bounding, Clipping, and Cloud Tile Filtering parameters set for Imagery');
+
+// #################    
+// ### FUNCTIONS ###
+// #################
+  // Add NDWI band to IC
+  var addNDWI = function(image) {
+    return image.addBands(image.normalizedDifference(['B3', 'B8']).rename('NDWI'));
+  }; 
+  // Add an NDVI band to IC
+  var addNDVI = function(image) {
+   return image.addBands(image.normalizedDifference(['B8', 'B4']).rename('NDVI'));
+  };
+  // ## L1C MASK FUNCTIONS ##
+  // Function to mask out NDWI (L1C)
+  var WaterMaskL1C = function(image) {
+   var NDWI = image.select(['NDWI']);
+    return image.addBands(NDWI.gte(0.1).rename('NDWI_Mask'));
+  };
+  // Function to mask out NDVI (L1C)
+  var VegMaskL1C = function(image) {
+   var NDVI = image.select(['NDVI']);
+     return image.addBands(NDVI.lte(0).rename('NDVI_Mask'));
+  };
+  // Function to combine both L1C Masks
+  var CombinedL1CMask = function(image) {
+    var NDWI_Mask = image.select(['NDWI_Mask']);
+    var NDVI_Mask = image.select(['NDVI_Mask']);
+     // Adds the 2 masks together, and then clamps the output to be binary to keep it suitable for masking
+     return image.addBands(NDWI_Mask.add(NDVI_Mask).clamp(0,1).rename('L1CMask')); 
+  };
+  // Function to update the clipping of imagery to just the water areas, as defined by the combined Mask
+  var L1CMask = function(image) {
+    var Mask = image.select(['L1CMask']);
+     return image.updateMask(Mask.eq(1));
+  };
+  // ## L2A MASK FUNCTIONS ##
+    // Function to mask out NDWI (L2A)
+  var WaterMaskL2A = function(image) {
+   var NDWI = image.select(['NDWI']);
+    return image.addBands(NDWI.gte(0).rename('NDWI_Mask'));
+  };
+    // Function to mask out NDVI (L2A)
+  var VegMaskL2A = function(image) {
+   var NDVI = image.select(['NDVI']);
+     return image.addBands(NDVI.lte(0.04).rename('NDVI_Mask'));
+  };
+    // Function to Blend both L2A Masks
+  var CombinedL2AMask = function(image) {
+    var NDWI_Mask = image.select(['NDWI_Mask']);
+    var NDVI_Mask = image.select(['NDVI_Mask']);
+    // Adds the 2 masks together, and then clamps the output to be binary to keep it suitable for masking
+     return image.addBands(NDWI_Mask.add(NDVI_Mask).clamp(0,1).rename('L2AMask'));
+  };
+    // Function to update the clipping of imagery to just the water areas, as defined by the combined Mask
+  var L2AMask = function(image) {
+    var Mask = image.select(['L2AMask']);
+     return image.updateMask(Mask.eq(1));	
+  };
+// Applies all the functions (except the combo Mask-applied imagery) to the respective image collections
+var S2_L2A_Func = S2_L2A.map(addNDWI).map(addNDVI).map(VegMaskL2A).map(WaterMaskL2A).map(CombinedL2AMask);
+var S2_L2A_ACM = S2CloudMasked.map(addNDWI).map(addNDVI).map(VegMaskL2A).map(WaterMaskL2A).map(CombinedL2AMask);
+var S2_L1C_Func = S2_L1C.map(addNDWI).map(addNDVI).map(VegMaskL1C).map(WaterMaskL1C).map(CombinedL1CMask);
+// Creating a new var to run the mask apply function, because otherwise for some reason it retroactively 
+// breaks all the earlier separate masks
+var S2_L2A_Masked = S2_L2A_Func.map(L2AMask);
+var S2_L2A_ACMasked = S2_L2A_ACM.map(L2AMask); //L2A Masked with Alternative Cloud Masking Function
+var S2_L1C_Masked = S2_L1C_Func.map(L1CMask);
+print('Functions applied to Image Collections');
+
+// #########################
+// ### IMAGE EXPRESSIONS ###
+// #########################
+//    ## L2A EMPIRICAL MODELS ##
+//    These Require Sentinel 2 L2A (BoA) imagery (i.e. applied to the S2_L2A_ACMasked IC)
+//      # CHLOROPHYLL_A #
+//      Unit: mg/m3 Eq: 4.26 * (B3/B1)^3.94
+var L2A_ChlA = S2_L2A_ACMasked.map(function (image) {
+  return image.expression(
+    '(((B3/B1)**3.94)*4.26)', {
+      'B1': image.select('B1'),
+      'B3': image.select('B3')
+  }).rename('ChlA')
+  // HAVE TO ADD THE COPY PROPERTIES TO ALLOW FILTERING/TIMESERIES
+  .copyProperties(image, ["system:time_start"]);
+});
+//      # CYANOBACTERIA #
+//      Unit: 10³ cell/ml; Eq: 115530.31*(B3*(B4/B2))^2.38
+//      Unit conversion (10⁵ cells/L); Eq: 1.1553031*(B3*(B4/B2))^2.38
+var L2A_CyanoB = S2_L2A_ACMasked.map(function (image) {
+  return image.expression(
+    '((((B3*B4)/B2)**2.38)*115530.31)', {
+      'B3': image.select('B3'),
+      'B4': image.select('B4'),
+      'B2': image.select('B2')
+  }).rename('CyanoB')
+  .copyProperties(image, ["system:time_start"]);
+});
+//      # TURBIDITTY #
+//      Unit: NTU; Eq: 8.93 * ('B3'/'B1') - 6.39
+var L2A_Turb = S2_L2A_ACMasked.map(function (image) {
+  return image.expression(
+    '((8.93*(B3/B1))-6.39)', {
+      'B3': image.select('B3'),
+      'B1': image.select('B1')
+  }).rename('Turbidity NTU')
+  .copyProperties(image, ["system:time_start"]);
+});
+//      # TOTAL SUSPENDED MATTER (TSM) #
+//      Unit: mg/L; Eq:((384.11*B4)/1-(B4/0.1747)) +1.44
+var L2A_TSM = S2_L2A_ACMasked.map(function (image) {
+  return image.expression(
+    '((384.11*B4)/(1-(B4/0.1747)))+1.44', {
+      'B4': image.select('B4')
+    }).rename('TSM')
+    .copyProperties(image, ["system:time_start"]);
+});
+
+//    ## L1C EMPIRICAL MODELS ##
+//    These Require Sentinel 2 L1C (ToA) imagery (i.e. applied to the S2_L1C_Masked IC)
+//      # COLOURED DISSOLVED ORGANIC MATTER (CDOM) #
+//      Unit: mg/l; Eq: E^(('B3'/'B4')*-2.93)*537
+//      E = Exponent of Euler's Number, i.e. 2.718281828459045
+var L1C_CDOM = S2_L1C_Masked.map(function (image) {
+  return image.expression(
+    '(e**((B3/B4)* -2.93)*537)', {
+      'B3': image.select('B3'),
+      'B4': image.select('B4'),
+      'e': 2.718281828459045
+  }).rename('CDOM')
+  .copyProperties(image, ["system:time_start"]);
+});
+//      # DISSOLVED ORGANIC CARBON (DOC) #
+//      Unit: mg/L; Eq: E^(('B3'/'B4')*-2.24)*432
+//      E = Exponent of Euler's Number, i.e. 2.718281828459045
+var L1C_DOC = S2_L1C_Masked.map(function (image) {
+  return image.expression(
+    '(e**((B3/B4)* -2.24)*432)', {
+      'B3': image.select('B3'),
+      'B4': image.select('B4'),
+      'e': 2.718281828459045
+  }).rename('DOC')
+  .copyProperties(image, ["system:time_start"]);
+});
+//      # TRUE WATER COLOUR (TWC) #
+//      Unit: mg.Pt/l; Eq: E^(('B3'/'B4')*-4.53)*25366
+//      E = Exponent of Euler's Number, i.e. 2.718281828459045
+var L1C_TWC = S2_L1C_Masked.map(function (image) {
+  return image.expression(
+    '(e**((B3/B4)* -4.53)*25366)', {
+      'B3': image.select('B3'),
+      'B4': image.select('B4'),
+      'e': 2.718281828459045
+  }).rename('TWC mgPt-Co/L')
+  .copyProperties(image, ["system:time_start"]);
+});
+// ##################
+// ### IC JOINING ###
+// ##################
+// Joining the IC's bands of Water Quality indicators to allow them to be previewed on one series Chart
+//var WQMerged = L2A_ChlA.merge(L2A_CyanoB);//.merge(L2A_Turb).merge(L2A_TSM).merge(L1C_CDOM).merge(L1C_DOC).merge(L1C_TWC);
+//print (WQMerged.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE));
+var FieldFilt = ee.Filter.equals({
+  leftField: 'system:time_start',
+  rightField: 'system:time_start'
+});
+// Create the join.
+var CreateJoin = ee.Join.inner();
+// ## PARTICULATE JOINS ##
+// Inner join for Turbidity, TSM, CDOM,DOC, and TWC
+// Joins TSM to Turb
+var innerJoinPT = ee.ImageCollection(CreateJoin.apply(L2A_Turb, L2A_TSM, FieldFilt));
+var Joined = innerJoinPT.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+});
+// Joins CDOM to Turb/TSM
+var innerJoinPT_2 = ee.ImageCollection(CreateJoin.apply(Joined, L1C_CDOM, FieldFilt));
+var Joined2 = innerJoinPT_2.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+});
+// Joins DOC to Turb/TSM/CDOM
+var innerJoinPT_3 = ee.ImageCollection(CreateJoin.apply(Joined2, L1C_DOC, FieldFilt));
+var Joined3 = innerJoinPT_3.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+});
+// Joins TWC to Turb/TSM/CDOM/DOC for final Join
+var innerJoinPT_4 = ee.ImageCollection(CreateJoin.apply(Joined3, L1C_TWC, FieldFilt));
+var ParticulatesJoin = innerJoinPT_4.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+});
+//print('Join', ParticulatesJoin);
+
+/* The final L2A to L1C join will fail due to lack of memory, and isn't resolvable
+var innerJoinL2A_to_L1C = ee.ImageCollection(CreateJoin.apply(Joined3, Joined5, FieldFilt));
+var Joined6 = innerJoinL2A_to_L1C.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+});
+print('Joined Together', Joined6.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE));
+*/
+
+// ###############
+// ### LEGENDS ###
+// ###############
+//(Vertical, Stepped, position can be changed intuitively)
+// ## CHLORPHYLL A LEGEND ##  
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function ChlaColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: ChlaPalette,
+  };
+}
+// Set position of panel
+var Chlalegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var ChlalegendTitle = ui.Label({
+  value: 'Chlorophyll A\n(mg/m³)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+Chlalegendpos.add(ChlalegendTitle); 
+// Create text on top of legend
+var Chlapanel = ui.Panel({
+    widgets: [
+      ui.Label(ChlaVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+Chlalegendpos.add(Chlapanel);
+// Create thumbnail from the image
+var Chlathumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: ChlaColorBarParams(ChlaVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+Chlalegendpos.add(Chlathumbnail);
+// Create text on bottom of legend
+var Chlapanel2 = ui.Panel({
+    widgets: [
+      ui.Label(ChlaVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+Chlalegendpos.add(Chlapanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map (//)
+//Map.add(Chlalegendpos);
+
+// ## CYANOBACTERIA LEGEND ##
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function CyanoBColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: CyanoBPalette,
+  };
+}
+// Set position of panel
+var CyanoBlegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var CyanoBlegendTitle = ui.Label({
+  value: 'Cyanobacteria\n(x10³cells/L)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+CyanoBlegendpos.add(CyanoBlegendTitle); 
+// Create text on top of legend
+var CyanoBpanel = ui.Panel({
+    widgets: [
+      ui.Label(CyanoBVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+CyanoBlegendpos.add(CyanoBpanel);
+// Create thumbnail from the image
+var CyanoBthumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: CyanoBColorBarParams(CyanoBVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+CyanoBlegendpos.add(CyanoBthumbnail);
+// Create text on bottom of legend
+var CyanoBpanel2 = ui.Panel({
+    widgets: [
+      ui.Label(CyanoBVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+CyanoBlegendpos.add(CyanoBpanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map (//)
+//Map.add(CyanoBlegendpos);
+
+// ## TURBIDITY LEGEND ##  
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function TurbColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: TurbPalette,
+  };
+}
+// Set position of panel
+var Turblegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var TurblegendTitle = ui.Label({
+  value: 'Turbidity\n(NTU)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+Turblegendpos.add(TurblegendTitle); 
+// Create text on top of legend
+var Turbpanel = ui.Panel({
+    widgets: [
+      ui.Label(TurbVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+Turblegendpos.add(Turbpanel);
+// Create thumbnail from the image
+var Turbthumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: TurbColorBarParams(TurbVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+Turblegendpos.add(Turbthumbnail);
+// Create text on bottom of legend
+var Turbpanel2 = ui.Panel({
+    widgets: [
+      ui.Label(TurbVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+Turblegendpos.add(Turbpanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map(//)
+//Map.add(Turblegendpos);
+
+// ## TOTAL SUSPENDED MATTER LEGEND ##  
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function TSMColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: TSMPalette,
+  };
+}
+// Set position of panel
+var TSMlegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var TSMlegendTitle = ui.Label({
+  value: 'TSM\n(mg/L)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+TSMlegendpos.add(TSMlegendTitle); 
+// Create text on top of legend
+var TSMpanel = ui.Panel({
+    widgets: [
+      ui.Label(TSMVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+TSMlegendpos.add(TSMpanel);
+// Create thumbnail from the image
+var TSMthumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: TSMColorBarParams(TSMVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+TSMlegendpos.add(TSMthumbnail);
+// Create text on bottom of legend
+var TSMpanel2 = ui.Panel({
+    widgets: [
+      ui.Label(TSMVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+TSMlegendpos.add(TSMpanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map(//)
+//Map.add(TSMlegendpos);
+
+// ## COLOURED DISSOLVED ORGANIC MATTER LEGEND ##  
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function CDOMColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: CDOMPalette,
+  };
+}
+// Set position of panel
+var CDOMlegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var CDOMlegendTitle = ui.Label({
+  value: 'CDOM\n(mg/L)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+CDOMlegendpos.add(CDOMlegendTitle); 
+// Create text on top of legend
+var CDOMpanel = ui.Panel({
+    widgets: [
+      ui.Label(CDOMVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+CDOMlegendpos.add(CDOMpanel);
+// Create thumbnail from the image
+var CDOMthumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: CDOMColorBarParams(CDOMVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+CDOMlegendpos.add(CDOMthumbnail);
+// Create text on bottom of legend
+var CDOMpanel2 = ui.Panel({
+    widgets: [
+      ui.Label(CDOMVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+CDOMlegendpos.add(CDOMpanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map (//)
+//Map.add(CDOMlegendpos);
+
+// ## DISSOLVED ORGANIC CARBON LEGEND ## 
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function DOCColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: DOCPalette,
+  };
+}
+// Set position of panel
+var DOClegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var DOClegendTitle = ui.Label({
+  value: 'DOC\n(mg/L)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+DOClegendpos.add(DOClegendTitle); 
+// Create text on top of legend
+var DOCpanel = ui.Panel({
+    widgets: [
+      ui.Label(DOCVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+DOClegendpos.add(DOCpanel);
+// Create thumbnail from the image
+var DOCthumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: DOCColorBarParams(DOCVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+DOClegendpos.add(DOCthumbnail);
+// Create text on bottom of legend
+var DOCpanel2 = ui.Panel({
+    widgets: [
+      ui.Label(DOCVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+DOClegendpos.add(DOCpanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map (//)
+//Map.add(DOClegendpos);
+
+// ## TRUE WATER COLOUR LEGEND ##  
+// Creates a 7-step color bar thumbnail image for the legend from the given color palette
+function TWCColorBarParams(palette) {
+  return {
+    bbox: [7, 0, 0, 8],
+    dimensions: '10x200',
+    format: 'png',
+    min: 0,
+    max: 7,
+    palette: TWCPalette,
+  };
+}
+// Set position of panel
+var TWClegendpos = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 15px'
+  }
+});
+// Create legend title
+var TWClegendTitle = ui.Label({
+  value: 'TWC\n(mgPt-Co/L)',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '14px',
+    margin: '0 0 4px 0',
+    padding: '0',
+    whiteSpace: 'pre'
+    }
+});
+// Add the title to the panel
+TWClegendpos.add(TWClegendTitle); 
+// Create text on top of legend
+var TWCpanel = ui.Panel({
+    widgets: [
+      ui.Label(TWCVis['max'])
+    ],
+  });
+// Add the Top Label to the Panel
+TWClegendpos.add(TWCpanel);
+// Create thumbnail from the image
+var TWCthumbnail = ui.Thumbnail({
+  image: ee.Image.pixelLonLat().select('latitude').int(),
+  params: TWCColorBarParams(TWCVis.palette),
+  style: {padding: '1px', position: 'bottom-center', stretch: 'vertical', margin: '0px 8px', maxHeight: '200px'}
+});
+// Add the thumbnail to the legend
+TWClegendpos.add(TWCthumbnail);
+// Create text on bottom of legend
+var TWCpanel2 = ui.Panel({
+    widgets: [
+      ui.Label(TWCVis['min'])
+    ],
+  });
+// Add the Bottom Label to the Panel
+TWClegendpos.add(TWCpanel2);
+// Adds the legend panel (with all attached labels and widgets) to the Map (//)
+//Map.add(TWClegendpos);
+
+// ###############
+// ### BUTTONS ###
+// ###############
+// Create a panel for Buttons with vertical flow layout.
+var ButtonPanel = ui.Panel({
+  layout: ui.Panel.Layout.flow('vertical'),
+  style: {width: '10%'}
+});
+// ## CHLOROPHYLL A BUTTON ##
+ButtonPanel.add(ui.Button({
+  label: 'Chlorophyll A',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear(); // Clears any previous layer selections (Or use .remove() to specify a single layer)
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L2A', false);
+    Map.addLayer(L2A_ChlA.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),ChlaVis,'Chlorophyll_a, mg/m³ [L2A]');
+    Map.add(Chlalegendpos);
+    print('Displaying Chlorophyll A, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## CYANOBACTERIA BUTTON ##
+ButtonPanel.add(ui.Button({
+  label: 'Cyanobacteria',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L2A', false);
+    Map.addLayer(L2A_CyanoB.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),CyanoBVis,'Cyanobacteria, 10³ cell/L[L2A]');
+    Map.add(CyanoBlegendpos);
+    print('Displaying Cyanobacteria, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## TURBIDITY BUTTON ##
+ButtonPanel.add(ui.Button({
+  label: 'Turbidity',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L2A', false);
+    Map.addLayer(L2A_Turb.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),TurbVis,'Turbidity, NTU [L2A]');
+    Map.add(Turblegendpos);
+    print('Displaying Turbidity, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## TSM BUTTON ##
+ButtonPanel.add(ui.Button({
+  label: 'TSM',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L2A', false);
+    Map.addLayer(L2A_TSM.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),TSMVis,'TSM, mg/L [L2A]');
+    Map.add(TSMlegendpos);
+    print('Displaying Total Suspended Matter, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## CDOM BUTTON ##
+ButtonPanel.add(ui.Button({  
+  label: 'CDOM',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L1C.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L1C', false);
+    Map.addLayer(L1C_CDOM.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),CDOMVis,'CDOM, mg/L [L1C]');
+    Map.add(CDOMlegendpos);
+    print('Displaying Coloured Dissolved Organic Matter, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## DOC BUTTON ##
+ButtonPanel.add(ui.Button({  
+  label: 'DOC',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L1C.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L1C', false);
+    Map.addLayer(L1C_DOC.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),DOCVis,'DOC, mg/L [L1C]');
+    Map.add(DOClegendpos);
+    print('Displaying Dissolved Organic Carbon, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## TWC BUTTON ##
+ButtonPanel.add(ui.Button({  
+  label: 'TWC',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+    Map.addLayer(S2_L1C.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),rgbVis,'L1C', false);
+    Map.addLayer(L1C_TWC.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),TWCVis,'TWC, mgPt-Co/L [L1C]');
+    Map.add(TWClegendpos);
+    print('Displaying True Water Colour, please wait...');
+    print('Including True Colour Backgrounds, please check the Layers Tab');
+  }
+}));
+// ## EXPORT LAYERS BUTTON ##
+ButtonPanel.add(ui.Button({  
+  label: 'Export Water Quality Layers',
+  style: {stretch: 'horizontal', Color: '#1e90ff'},
+  onClick: function() {
+//    # PROPERTY EXTRACTION # 
+//      For naming exported files by the system:index (identifier)
+// Filtering the timeseries range to just a particular day (i.e. 2022-03-31)
+var S2_L2A_Filt = S2_L2A.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE);
+// Pulls out the System:Index Property of every element in the Filtered IC, puts it in a dictionary, and inserts it into the Properties 
+var SystemIndex = S2_L2A_Filt.map(function (image) {
+  return image.set('SysIndex', image.toDictionary(['system:index']));
+});
+// Aggregates the Dictionary into an Array (List)
+var list = SystemIndex.aggregate_array('SysIndex');
+// Gets only the first Element of the List
+var list_1st = list.get(0);
+//    # MOSAICING #
+//    Mosaics the current filterered view into a single image, for exporting
+var Chla_Mosaic = L2A_ChlA.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var CyanoB_Mosaic = L2A_CyanoB.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var Turb_Mosaic = L2A_Turb.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var TSM_Mosaic = L2A_TSM.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var CDOM_Mosaic = L1C_CDOM.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var DOC_Mosaic = L1C_DOC.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+var TWC_Mosaic = L1C_TWC.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE).mosaic().set(list_1st);
+// Display the Layers that are to be exported (for final confirmation of download)
+Map.addLayer(Chla_Mosaic, ChlaVis, 'Chlorophyll A Export');
+Map.addLayer(CyanoB_Mosaic, CyanoBVis, 'Cyanobacteria Export');
+Map.addLayer(Turb_Mosaic, TurbVis, 'Turbidity Export');
+Map.addLayer(TSM_Mosaic, TSMVis, 'TSM Export');
+Map.addLayer(CDOM_Mosaic, CDOMVis, 'CDOM Export');
+Map.addLayer(DOC_Mosaic, DOCVis, 'DOC Export');
+Map.addLayer(TWC_Mosaic, TWCVis, 'TWC Export');
+//    # PROPERTY APPLICATION #
+// Gets the System:Index of the Mosaic as a String
+var index = Chla_Mosaic.get('system:index');
+/* Sentinel 2 Imagery follows this naming convention:
+*  START TIME:'(YYYYMMDD)T(HHMMSS)_' + END TIME:'(YYYYMMDD)T(HHMMSS)_' + UTM MGRS ID: 'T00ABC'
+*  So slicing it to the first 13 characters gives you the swath start time, to the minute
+*  This is extracted using getInfo() which can then be put into the image name.
+*  Only has to be done on one of the Mosaic layers, as the system:index will be the same for all of them
+*/
+var index = index.getInfo().slice(0,13);
+//    # EXPORTS #   
+Export.image.toDrive({
+    image: Chla_Mosaic.visualize(ChlaVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom, // The area of interest
+    description: 'Chl_A_' + index, // Sets the name of the image(s) with the date
+    folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857', // CRS - This is the standard GEE Web Mercator projection, WGS84.
+    maxPixels: 1e13, // Max Pixel amount - always required as the default limit is very small
+    fileFormat: 'GeoTIFF'
+});
+Export.image.toDrive({
+    image: CyanoB_Mosaic.visualize(CyanoBVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom,
+    description: 'Cyanobacteria_' + index, 
+    folder: 'GEETestDemo', 
+    scale: 'nominal', 
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+Export.image.toDrive({
+    image: Turb_Mosaic.visualize(TurbVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom,
+    description: 'Turbidity_' + index, // Sets the description, NOT THE NAME.
+    folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+Export.image.toDrive({
+    image: TSM_Mosaic.visualize(TSMVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom,
+    description: 'TSM_' + index, // Sets the description, NOT THE NAME.
+    folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+Export.image.toDrive({
+    image: CDOM_Mosaic.visualize(CDOMVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom,
+    description: 'CDOM_' + index, // Sets the description, NOT THE NAME.
+    folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+Export.image.toDrive({
+    image: DOC_Mosaic.visualize(DOCVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom,
+    description: 'DOC_' + index, // Sets the description, NOT THE NAME.
+    folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+Export.image.toDrive({
+    image: TWC_Mosaic.visualize(TWCVis), // Sets the image to keep the current Visualisation parameters
+    region: Demogeom,
+    description: 'TWC_' + index, // Sets the description, NOT THE NAME.
+    folder: 'GEETestDemo', // The destination folder for the imagery in your Account's Google Drive
+    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    crs: 'EPSG:3857',
+    maxPixels: 1e13,
+});
+print('Please check the Tasks tab to confirm Export');
+  }
+}));
+// ## TIMESERIES BUTTON ##
+ButtonPanel.add(ui.Button({  
+  label: 'Time Series Chart',
+  style: {stretch: 'horizontal'},
+  onClick: function() {
+    // Screen Viewcontrols
+    Map.clear();
+    Map.setControlVisibility(false);
+    Map.style().set('cursor', 'crosshair');
+    Map.setOptions("TERRAIN");
+    Map.addLayer(BOUNDS.draw({color: '006600', strokeWidth: 2}), {"opacity":0.65,"gamma":0.1}, 'Bounds');
+    // TimeSeries Charting On-Click
+    Map.onClick(function(coords) {
+    var location = 'lon: ' + coords.lon.toFixed(3) +
+                   'lat: ' + coords.lat.toFixed(3);
+    var point = ee.Geometry.Point(coords.lon, coords.lat);
+    var chart1 = ui.Chart.image.series(L2A_CyanoB,point)
+        .setOptions({
+          title: "CyanoBacteria" + " | Lon: " + coords.lon.toFixed(3) + ' Lat: ' + coords.lat.toFixed(3),
+          vAxis: {title: "x10³ cells/L", viewWindow : {max : 2000, min : 0}, gridlines: {count: 10}},
+          hAxis: {title: "Date", format: 'MMM-dd-yy', gridlines: {count: 8}},
+          legend: "right",
+          series: {
+          0: {color: '00dc8b', lineWidth: 1, pointSize: 1}, // CyanoB
+          }
+        });
+    var chart2 = ui.Chart.image.series(L2A_ChlA,point)
+        .setOptions({
+          title: "Chlorophyll a" + " | Lon: " + coords.lon.toFixed(3) + ' Lat: ' + coords.lat.toFixed(3),
+          vAxis: {title: "mg/m³", viewWindow : {max : 160, min : 0}, gridlines: {count: 10}},
+          hAxis: {title: "Date", format: 'MMM-dd-yy', gridlines: {count: 8}},
+          legend: "right",
+          series: {
+          0: {color: '129450', lineWidth: 1, pointSize: 1}, // CDOM
+          }
+        });
+    var chart3 = ui.Chart.image.series(ParticulatesJoin,point)
+        .setOptions({
+          title: "Particulates" + " | Lon: " + coords.lon.toFixed(3) + ' Lat: ' + coords.lat.toFixed(3),
+          vAxis: {title: "mg/L", viewWindow : {max : 300, min : 0}, gridlines: {count: 10}},
+          hAxis: {title: "Date", format: 'MMM-dd-yy', gridlines: {count: 8}},
+          legend: "right",
+          series: {
+            // Series are ordered by Alphabetical, regardless how the band ordering is set.
+          0: {color: '9f2462', lineWidth: 1, pointSize: 1},  // CDOM
+          1: {color: 'f64497', lineWidth: 1, pointSize: 1},  // DOC
+          2: {color: 'a62225', lineWidth: 1, pointSize: 1},  // TSM
+          3: {color: '30678d', lineWidth: 1, pointSize: 1},  // TWC
+          4: {color: '4d392d', lineWidth: 1, pointSize: 1},  // Turbidity
+          }
+        });
+    Chartpanel.widgets().set(0, chart1).set(1, chart2).set(2, chart3);
+});
+var Chartpanel = ui.Panel({
+  layout: ui.Panel.Layout.flow('vertical'),
+  style: {
+  width: '25%',
+  position: "bottom-left"
+  }})
+    .add(ui.Label({
+      value: 'Click within the boundary to generate a timeseries chart\n(If there is water there)', 
+      style: {position: 'top-center', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'pre'}
+    }));
+Map.add(Chartpanel);
+  }
+}));
+// ## DEBUG BUTTON ##
+      // Adds a Debug Button that adds *all* layers to identify problems, but no Legends. 
+      //In Demo versions this should be turned off
+// /*
+ButtonPanel.add(ui.Button({
+  label: 'Add Debug Layers',
+  style: {stretch: 'horizontal', Color: 'red'},
+  onClick: function() {
+    Map.clear();
+    Map.setOptions("TERRAIN");
+	print('Debug Activated, please wait');
+	// Add the pre-clipped IC's to the map (specifically, a reasonably clear image from 31st March 2022)
+	print(S2_L1C);
+	print(S2_L2A);
+	Map.addLayer(S2_L2A,rgbVis,'L2A');
+	Map.addLayer(S2_L1C,rgbVis,'L1C');
+	// NDVI
+	Map.addLayer(S2_L2A_Func, NDVIVis, 'L2A NDVI', false);
+	Map.addLayer(S2_L1C_Func, NDVIVis, 'L1C NDVI', false);
+	// NDWI
+	Map.addLayer(S2_L2A_Func, NDWIVis, 'L2A NDWI', false);
+	Map.addLayer(S2_L1C_Func, NDWIVis, 'L1C NDWI', false);
+	// NDVI Mask
+	Map.addLayer(S2_L2A_Func, NDVIMaskVis, 'L2A NDVIMask', false);
+	Map.addLayer(S2_L1C_Func, NDVIMaskVis, 'L1C NDVIMask', false);
+	// NDWI Mask
+	Map.addLayer(S2_L2A_Func, NDWIMaskVis, 'L2A NDWIMask', false);
+	Map.addLayer(S2_L1C_Func, NDWIMaskVis, 'L1C NDWIMask', false);
+	// Combo Mask
+	print(S2_L2A_Func); // This adds the info for ND(V/W)I, their Masks, and the Combo Mask 
+	print(S2_L2A_Masked);
+	print(S2_L1C_Func); // This adds the info for ND(V/W)I, their Masks, and the Combo Mask 
+	print(S2_L1C_Masked);
+	Map.addLayer(S2_L2A_Func, L2AMaskVis, 'L2A Mask', false);
+	Map.addLayer(S2_L1C_Func, L1CMaskVis, 'L1C Mask', false);
+	// Masking Types, date filtered
+    Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), rgbVis, 'L2A Cloud+FilterMasked at ' + MAX_CLOUD_PROB + '%', false);
+    Map.addLayer(S2_L2A_ACMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), rgbVis, 'L2A_Tile+Cloud+FilterMasked at ' + MAX_CLOUD_PROB + '%', false);
+    Map.addLayer(S2_L2A_Masked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), rgbVis, 'L2A_Tile+CloudMasked', false);
+    Map.addLayer(S2_L2A_ACMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NDVIVis, 'L2A_NDVITile+Cloud+FilterMasked at ' + MAX_CLOUD_PROB + '%', false);
+    Map.addLayer(S2_L2A_Masked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NDVIVis, 'L2A_NDVITile+CloudMasked', false);
+    Map.addLayer(S2_L2A_ACMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NDWIVis, 'L2A_NDWITile+Cloud+FilterMasked at ' + MAX_CLOUD_PROB + '%', false);
+    Map.addLayer(S2_L2A_Masked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NDWIVis, 'L2A_NDWITile+CloudMasked', false);
+	// ChlA
+	Map.addLayer(L2A_ChlA,ChlaVis,'Chlorophyll_a, mg/m3 [L2A]');
+	print(L2A_ChlA);
+	// CyanoB
+	Map.addLayer(L2A_CyanoB,CyanoBVis,'Cyanobacteria, 10^3 cell/ml[L2A]');
+	print(L2A_CyanoB);
+	// Turbidity
+	Map.addLayer(L2A_Turb,TurbVis,'Turbidity, NTU [L2A]');
+	print(L2A_Turb);
+	// TSM
+	Map.addLayer(L2A_TSM.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE),TSMVis,'TSM, mg/L [L2A]');
+	print(L2A_TSM);
+	// CDOM
+	Map.addLayer(L1C_CDOM,CDOMVis,'CDOM, mg/l [L1C]');
+	print(L1C_CDOM);
+	// DOC
+	Map.addLayer(L1C_DOC,DOCVis,'DOC, mg/l [L1C]');
+	print(L1C_DOC);
+	// TWC
+	Map.addLayer(L1C_TWC,TWCVis,'TWC, mgPt-Co/L [L1C]');
+	print(L1C_TWC);
+  }
+}));
+// */
+// Adds the Button Panel to the Map
+ui.root.add(ButtonPanel);
+
+// #### SCRIPT END ####
+
+/* #### INSPIRATION FOR S2WQIS, SE2WAQ CREDITS ####
+*
+*  Sentinel EO Browser function to show Water Quality indicators using Sentinel 2 data (SE2WAQ)
+*  Available from https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/se2waq/#
+*
+*  Name:    Sentinel-2 Water Quality (Se2WaQ) for Sentinel Hub/EO Browser
+*  Version: 1.0
+*  Date:    2020-01-31
+* 
+*  Author:      Nuno Sidónio Andrade Pereira
+*  Affiliation: Polytechnic Institute of Beja, Portugal
+*  License:     Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
+* 
+*  Refs.: [1]M. Potes et al., “Use of Sentinel 2 – MSI for water quality 
+*            monitoring at Alqueva reservoir, Portugal,” Proc. Int. Assoc. 
+*            Hydrol. Sci., vol. 380, pp. 73–79, Dec. 2018.
+*            (Chl_a, CyanoB, Turbidity)
+*            R accuracy (in study): Chl_a - 0.70 (70%)
+*
+*         [2]K. Toming, T. Kutser, A. Laas, M. Sepp, B. Paavel, and T. Nõges,
+*            “First Experiences in Mapping Lake Water Quality Parameters with
+*            Sentinel-2 MSI Imagery,” Remote Sens., vol. 8, no. 8, p. 640, 
+*            Aug. 2016. 
+*            (CDOM, DOC, TWC)
+*            R accuracy (in study): CDOM - 0.72 (72%), DOC - 0.52 (52%), TWC - 0.92 (92%)
+*/
+
+/* #### FURTHER REFERENCES FOR ADDITONAL ALGORITHMS USED IN S2WQIS ####
+*
+*        [3a]Nechad, B.; Ruddick, K.G.; Park, Y., "Calibration and validation
+*            of a generic multisensor algorithm for mapping of total suspended
+*            matter in turbid waters". Remote Sens. Environ. 2010, vol. 114, 
+*            pp 854–866.
+*            IN;
+*         [3]Chau, P.-M.; Wang, C.-K., "Estimation of Total Suspended Matter 
+*            Concentration of Ha Long Bay, Vietnam, from Formosat-5 Image." 
+*            J. Mar. Sci. Eng. 2022, vol. 10, pp. 441. 
+*            https://doi.org/10.3390/jmse10030441 
+*            (TSM)
+*            R accuracy (in studies): [3a] TSM - 0.86 (86%), [3b] TSM - 0.95 (95%)
+*/
