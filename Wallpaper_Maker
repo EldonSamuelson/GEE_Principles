@@ -1,12 +1,17 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var geometry = 
-    /* color: #d63000 */
+    /* color: #ffc82d */
     /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
     ee.Geometry.Polygon(
-        [[[-10.910132824728466, 52.45508443049728],
-          [-10.910132824728466, 51.88318371319696],
-          [-8.928473889181591, 51.88318371319696],
-          [-8.928473889181591, 52.45508443049728]]], null, false);
+        [[[-9.955531829921771, 52.34211609834481],
+          [-9.955531829921771, 52.23732622311227],
+          [-9.644138092128802, 52.23732622311227],
+          [-9.644138092128802, 52.34211609834481]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
@@ -89,7 +94,7 @@ var RGBVis = {
 // Falsecolour (IR-G-B) Visualisation (for S2 - Not in use, but available)
 var NIRVis = {
   min: 0,
-  max: 0.5,
+  max: 0.55,
   bands: ['B8', 'B3', 'B2'],
 };
 // NDWI Visualisation
@@ -235,11 +240,11 @@ var index = S2_L2A_Mosaic.get('system:index');
 var index = index.getInfo().slice(0,13);
 //    # EXPORTS #   
 Export.image.toDrive({
-    image: S2_L2A_Mosaic.visualize(RGBVis), // Sets the image to keep the current Visualisation parameters
+    image: S2_L2A_Mosaic.visualize(NIRVis), // Sets the image to keep the current Visualisation parameters
     region: geometry, // The area of interest
-    description: 'Surface-chrome_' + index, // Sets the name of the image(s) with the date
+    description: 'LOCATION_' + index, // Sets the name of the image(s) with the date
     folder: 'GEE_Wallpapers', // The destination folder for the imagery in your Account's Google Drive
-    scale: '75', // scale in m/px. 'Nominal' returns requested image AT TRUE SCALE
+    scale: '20', // scale in m/px. 'Nominal' returns requested image AT TRUE SCALE
     crs: 'EPSG:3857', // CRS - This is the standard GEE Web Mercator projection, WGS84.
     maxPixels: 1e13, // Max Pixel amount - always required as the default limit is very small
     fileFormat: 'GeoTIFF'
