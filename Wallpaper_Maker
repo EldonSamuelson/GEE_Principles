@@ -239,7 +239,7 @@ Export.image.toDrive({
     region: geometry, // The area of interest
     description: 'Surface-chrome_' + index, // Sets the name of the image(s) with the date
     folder: 'GEE_Wallpapers', // The destination folder for the imagery in your Account's Google Drive
-    scale: 'nominal', // Returns requested image AT TRUE SCALE
+    scale: '75', // scale in m/px. 'Nominal' returns requested image AT TRUE SCALE
     crs: 'EPSG:3857', // CRS - This is the standard GEE Web Mercator projection, WGS84.
     maxPixels: 1e13, // Max Pixel amount - always required as the default limit is very small
     fileFormat: 'GeoTIFF'
