@@ -1,0 +1,292 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var aoi = 
+    /* color: #8b8882 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-77.3521644558211, 39.15789441161912],
+          [-77.3521644558211, 38.65884862366653],
+          [-76.6984779323836, 38.65884862366653],
+          [-76.6984779323836, 39.15789441161912]]], null, false),
+    Rural = /* color: #ffa343 */ee.Geometry.MultiPolygon(
+        [[[[-77.27800674097735, 39.12860481849034],
+           [-77.30135268824297, 39.14990769616968],
+           [-77.3356849636336, 39.147777698471025],
+           [-77.33431167261797, 39.09130927402061],
+           [-77.28761977808672, 39.09344097963858]]],
+         [[[-77.2807533230086, 38.94940628126506],
+           [-77.22170180933672, 38.94940628126506],
+           [-77.2477943386336, 38.98784422329465],
+           [-77.28899306910235, 39.00492105720018],
+           [-77.31645888941485, 39.0017194647532]]],
+         [[[-76.71770835908849, 39.03799730742311],
+           [-76.75753079506836, 39.07851623779237],
+           [-76.81383147204804, 39.076384243337976],
+           [-76.8124582884992, 39.041197014757444],
+           [-76.76576991739103, 39.025197021188774]]],
+         [[[-76.72319717066485, 38.770824265640876],
+           [-76.77950210230547, 38.79651633794212],
+           [-76.82207412378985, 38.77510692055246],
+           [-76.8193275417586, 38.74190961999463],
+           [-76.74104995386797, 38.73655377057147]]]]),
+    Urban = /* color: #bf04c2 */ee.Geometry.MultiPolygon(
+        [[[[-77.03081435816485, 38.885296702231],
+           [-77.01776569233175, 38.8697933858209],
+           [-77.01227492945391, 38.8510812487952],
+           [-76.97794265406328, 38.869260258928065],
+           [-76.95871657984453, 38.88743462124696],
+           [-76.93640204750183, 38.87647848184095],
+           [-76.92026443140703, 38.89812325122889],
+           [-76.90378493921953, 38.94086168394609],
+           [-76.93125075953203, 38.97396626148844],
+           [-76.97107619898516, 38.982506867596165],
+           [-77.02738113062578, 38.99104644355398],
+           [-77.02600932980451, 38.96328449292715],
+           [-77.03012711285606, 38.949402841487284],
+           [-77.03390426295, 38.93712309878202],
+           [-77.04162917422484, 38.932315850270136],
+           [-77.03768081324297, 38.925906160650115],
+           [-77.04798006165615, 38.91602224798074],
+           [-77.04935378687578, 38.91041318707883],
+           [-77.05072707789141, 38.90560433511202]]],
+         [[[-77.05347365992266, 38.843861823456116],
+           [-77.0716642630131, 38.86431393470722],
+           [-77.09329909937578, 38.88315871887769],
+           [-77.11939162867266, 38.885296702231024],
+           [-77.14102096216875, 38.87834802110431],
+           [-77.12608069129536, 38.85214870732327],
+           [-77.11218185084063, 38.832362707695914],
+           [-77.10428542750078, 38.82326906822631],
+           [-77.04660720484453, 38.79651633794212],
+           [-77.04797694684406, 38.82246343144293]]]]);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+/* 
+ARSET Training: Satellite Remote Sensing for Measuring Urban Heat Islands and Constructing Heat Vulnerability Indices
+August 2, 2022 - August 11, 2022
+
+This code is free and open. 
+
+The script is adapted from the following source code: 
+NASA DEVELOP, 2020, URBAN HEAT EXPOSURE ASSESSMENT TEMPE (UHEAT) Analysis
+Tempe Urban Development II
+https://github.com/NASA-DEVELOP/UHEAT
+
+Description: This script calculates mean daytime and nighttime land surface temperature (LST) across a given date range 
+and year range using the MODIS sensor on the Aqua satellite. Daytime and nighttime LST is calculated from daily Aqua MODIS LST 
+and emissivity (global, 1 km).
+The example demonstrates how to derive LST for the area surrounding Washington, DC (USA) to assess the Surface Urban Heat Island (SUHI).
+
+Parameters:
+  DATE_RANGE
+  YEAR_RANGE
+  STUDYBOUNDS
+  DISPLAY
+*/
+
+// Filter day of year from July 1 to August 31.
+var DATE_RANGE = ee.Filter.dayOfYear(182, 243);
+// Filter years from 2010 – 2022.
+var YEAR_RANGE = ee.Filter.calendarRange(2010, 2022,'year');
+// Delineate your area of interest
+var STUDYBOUNDS = aoi;
+var DISPLAY = true;
+
+ // Center the map on the image.
+Map.centerObject(STUDYBOUNDS);
+
+// Set the basemap to display as satellite.
+Map.setOptions('SATELLITE');
+/* Other basemap options are below
+Map.setOptions('HYBRID');
+Map.setOptions('ROADMAP');
+Map.setOptions('TERRAIN');
+*/
+
+// QUALITY MASK
+    // Compute the QC bits we need to extract. A Quality Control (QC) band is included in MODIS data products. 
+    // Each pixel in the QC band contains a value that represents bit-packed combinations of surface, atmosphere, 
+    // and sensor conditions that can affect the overall usefulness of a given pixel.
+var getQCBits = function(image, start, end, newName) {
+    var pattern = 0;
+    for (var i = start; i <= end; i++) {
+      pattern += Math.pow(2, i);
+    }
+    // Return a single band image of the extracted QC bits, giving the band a new name.
+    return image.select([0], [newName])
+                  .bitwiseAnd(pattern)
+                  .rightShift(start);
+};
+
+// Mask out cloudy pixels & cloud state using the QC band.
+var maskQC = function(image) {
+  // Select the QC_Night and QC_Day bands from the MODIS data product
+  var QC = image.select('QC_Night','QC_Day');
+  // Get the internal_cloud_algorithm_flag bit.
+  var cloud = getQCBits(QC, 0,1, 'QC_state')
+              .expression("b(0) == 3 || b(0) == 2");
+  var error = getQCBits(QC, 6, 7, 'T_err')
+              .expression(" b(0) == 3");
+  // Return an image masking out cloudy and low quality areas
+  image = image.updateMask(error.not());
+  return image.updateMask(cloud.not());
+};
+
+// RETRIEVING DATA
+  // Filter MODIS image collection by year, date ranges, and geographical boundaries. Apply the cloud mask to collection.
+  var collection = ee.ImageCollection('MODIS/061/MYD11A1')
+ // Filter by the set variables above for day of year range and year range
+ .filter(DATE_RANGE)
+ .filter(YEAR_RANGE)
+ // use above functions to filter cloudy pixels
+  .map(maskQC); 
+// Print the argument to the console tab.
+print(collection);
+
+// TRANSFORM DAYTIME & NIGHTTIME LST TO CELSIUS THROUGH RESCALING
+// Derive nighttime LST in Celsius
+var NightLST_C = collection.map(function(image)
+                {
+                  return image.addBands(
+                    image.expression(
+                '(A * 0.02) - 273.15',
+                {
+                  'A' : image.select('LST_Night_1km')
+                // rename the band LST_Night_1km to LSTN_C  
+                }).rename('LSTN_C'))});
+                
+// Derive daytime LST in Celsius
+var DayLST_C = collection.map(function(image)
+                {
+                  return image.addBands(
+                    image.expression(
+                '(A * 0.02) - 273.15',
+                {
+                  'A' : image.select('LST_Day_1km')
+                // rename the band LST_Day_1km to LSTD_C 
+                }).rename('LSTD_C'))});
+
+print("... Plotting histogram of number of pixels per location (night)");
+// Provide a count of LST values per pixel in the image collection at night.          
+var counts_LSTN = NightLST_C.select("LSTN_C").count();
+// Display the count for our study area in a histogram.
+var histogram_LSTN = ui.Chart.image.histogram(counts_LSTN, STUDYBOUNDS, 1000);
+print(histogram_LSTN);
+
+print("... Plotting histogram of number of pixels per location (day)");
+// Provide the count of LST values per pixel in the image collection during the day.          
+var counts_LSTD = DayLST_C.select("LSTD_C").count();
+// Display the count for our study area in a histogram.
+var histogram_LSTD = ui.Chart.image.histogram(counts_LSTD, STUDYBOUNDS, 1000);
+print(histogram_LSTD);
+
+print("... Computing mean across time (night)");
+// Calculate mean nighttime LST for each pixel geography in the image collection
+var mean_LSTN = NightLST_C.mean();
+// return mean_LSTN
+print(mean_LSTN);
+
+print("... Computing mean across time (day)");
+// Calculate mean daytime LST for each pixel geography in the image collection
+var mean_LSTD = DayLST_C.mean();
+// return mean_LSTD
+print(mean_LSTD);
+
+// Plot a histogram of LST values at night
+ print("... Plotting histogram of LST values (night)");
+ var cLSTN = mean_LSTN.clip(STUDYBOUNDS);
+ var values_LSTN = cLSTN.select("LSTN_C"); 
+ var histogram_LSTN_values = ui.Chart.image.histogram(values_LSTN, STUDYBOUNDS, 1000);
+ print(histogram_LSTN_values);
+ 
+ // Plot a histogram of LST values during the day
+ print("... Plotting histogram of LST values (day)");
+ var cLSTD = mean_LSTD.clip(STUDYBOUNDS);
+ var values_LSTD = cLSTD.select("LSTD_C"); 
+ var histogram_LSTD_values = ui.Chart.image.histogram(values_LSTD, STUDYBOUNDS, 1000);
+ print(histogram_LSTD_values);
+
+print('... Mean/Min/Max LST for urban Washington, DC (night)');
+// Define a variable to compute the mean, min, and max for an urban polygon layer at night. 
+// Polygon was created using the "Draw a shape" tool.
+var statsNightUrban = cLSTN.reduceRegions({
+  collection: Urban,
+  reducer: ee.Reducer.mean().combine({
+  reducer2: ee.Reducer.minMax(),
+  sharedInputs: true
+  }),
+  scale: 1000});
+  
+  // Print the statistics to the console.
+print (statsNightUrban);
+  
+// Define a variable to compute the mean, min, and max for a rural (multipart) polygon layer at night. 
+// Multipart polygon was created using the "Draw a shape" tool.
+print('... Mean/Min/Max LST for rural Washington, DC (night)');
+var statsNightRural = cLSTN.reduceRegions({
+  collection: Rural,
+  reducer: ee.Reducer.mean().combine({
+  reducer2: ee.Reducer.minMax(),
+  sharedInputs: true
+  }),
+  scale: 1000
+});
+
+// print the statistics to the console.
+print (statsNightRural);
+
+print('... Mean/Min/Max LST for urban Washington, DC (day)');
+// Define a variable to compute the mean, min, and max for an urban polygon layer during the day. 
+// Polygon was created using the "Draw a shape" tool.
+var statsDayUrban = cLSTD.reduceRegions({
+  collection: Urban,
+  reducer: ee.Reducer.mean().combine({
+  reducer2: ee.Reducer.minMax(),
+  sharedInputs: true
+  }),
+  scale: 1000
+});
+
+// print the statistics to the console.
+print (statsDayUrban);
+
+// Define a variable to compute the mean, min, and max for a rural (multipart) polygon layer during the day.
+// Multipart polygon was created using the "Draw a shape" tool.
+print('... Mean/Min/Max LST for rural Washington, DC (day)');
+var statsDayRural = cLSTD.reduceRegions({
+  collection: Rural,
+  reducer: ee.Reducer.mean().combine({
+  reducer2: ee.Reducer.minMax(),
+  sharedInputs: true
+  }),
+  scale: 1000
+});
+
+// Print the statistics to the console.
+print (statsDayRural);
+
+// Add the nighttime LST to the map window specifying parameters for visualization.
+Map.addLayer(cLSTN, {
+  bands: "LSTN_C", 
+  min: 18, max: 23, 
+  palette: ['blue','white','red']}, "Night LST", DISPLAY);
+  
+// Add the daytime LST to the map window specifying parameters for visualization.
+Map.addLayer(cLSTD, {
+  bands: "LSTD_C", 
+  min: 28, max: 40, 
+  palette: ['blue','white','red']}, "Day LST", DISPLAY);
+  
+//*********************** CALCULATE SUHI **********************//
+/* To calculate the surface urban heat island (SUHI) for your aoi, find the Mean/Min/Max ST
+under the Console tab --> FeatureCollection --> features --> 0: --> properties --> (e.g., LSTN_C_mean)
+
+Subtract the mean urban temperature from the mean rural temperature for day and night (separately).
+(LSTN_C_mean [Urban/night]) - (LSTN_C_mean [Rural/night]) = SUHI nighttime intensity
+(LSTD_C_mean [Urban/day]) - (LSTD_C_mean [Rural/day]) = SUHI daytime intensity
+
+The intensity of the heat island is the simplest quantitative indicator of the 
+thermal modification imposed by a city upon the geography in which it is situated, and 
+of its relative warming in relation to the surrounding rural environment. */
