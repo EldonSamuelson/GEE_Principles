@@ -1,0 +1,117 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var point = /* color: #ff0000 */ee.Geometry.Point([-9.746559433752461, 52.25710546296313]);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+/* 
+Author: Sean McCartney (sean.mccartney@nasa.gov)
+ARSET Training: Satellite Remote Sensing for Measuring Urban Heat Islands and Constructing Heat Vulnerability Indices
+August 2, 2022 - August 11, 2022
+
+This code is free and open. 
+By using this code you agree to cite the following reference in any publications derived from them:
+NASA Applied Remote Sensing Training (ARSET) program
+
+This script shows how to query and chart Landsat surface temperature (ST) time series from 
+Landsat missions 8 & 9 over Washington, DC (USA) for a specified location (longitude/latitude). 
+*/
+
+
+//****************** DEFINE THE STUDY AREA *****************//
+// Assign a location (longitude/latitude) to filter the image collections to an area of interest (aoi).
+// Change the longitude/latitude parameter for your own aoi. (Hint: you can copy/paste longitude/latitude using the Inspector tab.)
+
+// Buffer the aoi by 30 meters to match the spatial resolution of a Landsat pixel.
+var aoi = point.buffer(30);
+
+// Set the basemap to display as satellite.
+Map.setOptions('HYBRID');
+/* Other basemap options are below
+Map.setOptions('HYBRID');
+Map.setOptions('ROADMAP');
+Map.setOptions('TERRAIN');
+*/
+
+// Center the map view at defined coordinates (longitude/latitude) with the given zoom level.
+// Zoom level ranges from 0 to 24, with 0 being global and 24 being the smallest region possible.
+// Latitude must be within [-85, 85].
+Map.centerObject(point, 12);
+
+// Assign a variable to the sensor-specific bands unique to each Landsat mission.
+var LC09_bands = ['ST_B10', 'QA_PIXEL']; // Landsat 9 surface temperature (ST) & QA_Pixel bands
+var LC08_bands = ['ST_B10', 'QA_PIXEL']; // Landsat 8 surface temperature (ST) & QA_Pixel bands
+
+// Assign a variable for the band names used later in the script.
+var bandName = ['ST', 'QA_PIXEL'];
+
+//****************** CLOUD MASK FUNCTION *****************//
+// Create a function to mask clouds and cloud shadows based on the QA_PIXEL band of Landsat 8 & 9
+// For information on bit values for the QA_PIXEL band refer to: 
+// https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C02_T1_L2#bands
+function cloudMask(image) {
+  var qa = image.select('QA_PIXEL');
+  var mask = qa.bitwiseAnd(1 << 3)
+    .or(qa.bitwiseAnd(1 << 4));
+  return image.updateMask(mask.not());
+}
+
+/* Assign variables to import the Landsat Collection 2, Tier 1, Level 2 image collections, selecting 
+the ST and QA_PIXEL bands, and spatially filtering the image collection by the longitude/latitude defined 
+above. */
+var L9 = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2') // Landsat 9 (entire collection)
+  .select(LC09_bands, bandName)
+  .filterBounds(point)
+  .map(cloudMask);
+var L8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2') // Landsat 8 (entire collection)
+  .select(LC08_bands, bandName)
+  .filterBounds(point)
+  .map(cloudMask);
+
+// Filter the collections by the CLOUD_COVER property so each image contains less than 20% cloud cover.
+var filtered_L9 = L9.filter(ee.Filter.lt('CLOUD_COVER', 20));
+var filtered_L8 = L8.filter(ee.Filter.lt('CLOUD_COVER', 20));
+
+// Use print statements to print each filtered collection to the console.
+print(filtered_L9, 'Landsat 9 ST');
+print(filtered_L8, 'Landsat 8 ST');
+
+// Assign a variable to a function to concatentate band names with each Landsat mission.
+var getband = function(landsat, bandname){
+  var wrap = function(image){
+    return image.select(bandname).rename(bandname.concat('_').concat(landsat));
+  };
+  return wrap;
+};
+
+// Assign a variable to merge the Landsat surface temperature collections for charting a pixel-based time series.
+var bandname = 'ST';
+var LandsatColl = filtered_L9.map(getband('L9', bandname));
+var LandsatColl = LandsatColl.merge(filtered_L8.map(getband('L8', bandname)));
+print(LandsatColl, 'Merged Landsat ST before scale factors are applied');
+
+// Create a funtion using Landsat scale factors for deriving ST.
+// For more information on ST scale factors, refer to:
+// https://www.usgs.gov/landsat-missions/landsat-collection-2-level-2-science-products
+function applyScaleFactors(image) {
+  var thermalBands = image.select('ST.*').multiply(0.00341802).add(149.0) // Scale factors for Kelvin
+  .subtract(273.15); // Scale factor for degrees Celsius
+  return image.addBands(thermalBands, null, true);
+}
+
+// Assign a variable to apply the scaling factors to the merged Landsat ST collection.
+var landsatST = LandsatColl.map(applyScaleFactors);
+// Use a print statement to print the argument to the console.
+print(landsatST, 'Merged Landsat ST (Celsius)');
+
+// Create a pixel-based time series charting ST from the Landsat archive (Landsat 8 & 9).
+var TimeSeries = ui.Chart.image.series(
+    landsatST, aoi, ee.Reducer.mean(), 30, 'system:time_start')
+        .setChartType('LineChart')
+        .setOptions({
+          title: 'Landsat Surface Temperature Time Series',
+          vAxis: {title: 'Surface Temperature (Celsius)'},
+          hAxis: {title: 'Date'},
+          lineWidth: 0.5,
+          pointSize: 3.5
+        });
+        
+// Print the chart to the Console.
+print(TimeSeries);
