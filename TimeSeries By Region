@@ -1,0 +1,21 @@
+/* Series By Region (i.e. Multipoint Feature)
+* Source: https://gis.stackexchange.com/questions/365923/building-gee-timeseries-for-multiple-locations
+*/
+
+var terraCollection = ee.ImageCollection("MODIS/006/MOD10A1").select(['NDSI_Snow_Cover']).filter(ee.Filter.date('2019-11-01', '2020-05-01'))
+var points = ee.FeatureCollection(
+        [ee.Feature( ee.Geometry.Point([13.427963679755548, 60.28846585303612])),
+        ee.Feature( ee.Geometry.Point([14.021225398505548, 60.87127944326994])),
+        ee.Feature( ee.Geometry.Point([14.087143367255548, 60.08089287233658])),
+        ee.Feature( ee.Geometry.Point([13.120346492255548, 60.02605006413671]))]);
+     
+var testChart = function(dataset) {
+  return ui.Chart.image.seriesByRegion({
+    imageCollection: dataset,
+    regions: points,
+    reducer: ee.Reducer.mean()
+    })
+// .setOptions({...}) // set the options you like
+}
+
+print(testChart(terraCollection))
