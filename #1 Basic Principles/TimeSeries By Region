@@ -8,6 +8,8 @@ var points = ee.FeatureCollection(
         ee.Feature( ee.Geometry.Point([14.021225398505548, 60.87127944326994])),
         ee.Feature( ee.Geometry.Point([14.087143367255548, 60.08089287233658])),
         ee.Feature( ee.Geometry.Point([13.120346492255548, 60.02605006413671]))]);
+
+print(terraCollection);
      
 var testChart = function(dataset) {
   return ui.Chart.image.seriesByRegion({
