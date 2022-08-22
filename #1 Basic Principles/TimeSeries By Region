@@ -1,3 +1,6 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var table = ee.FeatureCollection("users/SeamusWOD/OMB_SamplingPoints_WGS84");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
 /* Series By Region (i.e. Multipoint Feature)
 * Source: https://gis.stackexchange.com/questions/365923/building-gee-timeseries-for-multiple-locations
 */
@@ -10,6 +13,9 @@ var points = ee.FeatureCollection(
         ee.Feature( ee.Geometry.Point([13.120346492255548, 60.02605006413671]))]);
 
 print(terraCollection);
+print(points);
+
+// Series comes out exactly as Feature Collection is listed
      
 var testChart = function(dataset) {
   return ui.Chart.image.seriesByRegion({
