@@ -1,0 +1,51 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var OMBSamples = ee.FeatureCollection("users/SeamusWOD/OMB_SamplingPoints_WGS84");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+print(OMBSamples);
+
+// Paint FeatureCollection to an image using feature-specific style arguments.
+// A dictionary of style properties per power plant fuel type.
+var IDStyles = ee.Dictionary({
+  1: {color: 'blue', pointSize: 2},
+  2: {color: 'red', pointSize: 2},
+  3: {color: 'yellow', pointSize: 2},
+  4: {color: 'green', pointSize: 2},
+  5: {color: 'purple', pointSize: 2},
+  6: {color: 'cyan', pointSize: 2},
+  7: {color: 'orange', pointSize: 2},
+  8: {color: 'brown', pointSize: 2},
+  9: {color: 'maroon', pointSize: 2},
+  10: {color: 'pink', pointSize: 2},
+  11: {color: 'green', pointSize: 2},
+  12: {color: 'blue', pointSize: 2},
+  13: {color: 'blue', pointSize: 2},
+  14: {color: 'blue', pointSize: 2},
+  15: {color: 'blue', pointSize: 2},
+  16: {color: 'blue', pointSize: 2},
+  17: {color: 'blue', pointSize: 2},
+  18: {color: 'blue', pointSize: 2},
+  19: {color: 'blue', pointSize: 2},
+  20: {color: 'blue', pointSize: 2},
+  21: {color: 'blue', pointSize: 2},
+  22: {color: 'blue', pointSize: 2},
+  23: {color: 'blue', pointSize: 2},
+  24: {color: 'blue', pointSize: 2},
+  25: {color: 'blue', pointSize: 2},
+  26: {color: 'blue', pointSize: 2},
+  27: {color: 'blue', pointSize: 2}
+});
+
+// Add feature-specific style properties to each feature based on fuel type.
+var OMBSamp = OMBSamples.map(function(feature) {
+  return feature.set('style', IDStyles.get(feature.get('ID')));
+});
+
+// Style the FeatureCollection according to each feature's "style" property.
+var OMBSampVis = OMBSamp.style({
+  styleProperty: 'style',
+  neighborhood: 8  // maximum "pointSize" + "width" among features
+});
+
+// Display the FeatureCollection visualization (ee.Image) on the map.
+Map.addLayer(OMBSampVis, null, 'Feature-specific style');
+
