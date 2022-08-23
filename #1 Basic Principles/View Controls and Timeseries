@@ -26,5 +26,5 @@ var Chartpanel = ui.Panel({style: {
   width: '30%',
   height: '45%',
   position: "top-left"}})
-    .add(ui.Label('Click on the map to generate historical chart', ))
+    .add(ui.Label('Click on the map to generate historical chart'))
 Map.add(Chartpanel)
