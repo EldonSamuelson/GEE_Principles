@@ -2,6 +2,7 @@
 var OMBSamples = ee.FeatureCollection("users/SeamusWOD/OMB_SamplingPoints");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 print(OMBSamples);
+Map.centerObject(OMBSamples);
 
 // Paint FeatureCollection to an image using feature-specific style arguments.
 // A dictionary of style properties per power plant fuel type.
