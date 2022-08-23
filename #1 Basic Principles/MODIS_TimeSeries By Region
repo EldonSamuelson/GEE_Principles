@@ -1,6 +1,3 @@
-/**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var table = ee.FeatureCollection("users/SeamusWOD/OMB_SamplingPoints_WGS84");
-/***** End of imports. If edited, may not auto-convert in the playground. *****/
 /* Series By Region (i.e. Multipoint Feature)
 * Source: https://gis.stackexchange.com/questions/365923/building-gee-timeseries-for-multiple-locations
 */
