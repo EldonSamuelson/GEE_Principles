@@ -1,6 +1,5 @@
-/**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var SPOT5 = ee.Image("users/SeamusWOD/SPOT5_L1C_11-3-12_T1123_TOA");
-/***** End of imports. If edited, may not auto-convert in the playground. *****/
+
 var SpotVis = {
   //    B1(R)  B2(G)  B3(B)
   min: [0.011, 0.024, 0.083],
