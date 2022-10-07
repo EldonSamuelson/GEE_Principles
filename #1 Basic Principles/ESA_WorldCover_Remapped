@@ -1,3 +1,18 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-0.06395574689128214, 51.93581449103455],
+          [-0.06395574689128214, 51.201736834752346],
+          [1.5208220851399679, 51.201736834752346],
+          [1.5208220851399679, 51.93581449103455]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
 // The original ESA method
 var WCv1001st = ee.ImageCollection("ESA/WorldCover/v100").first();
 
@@ -5,8 +20,8 @@ var visualization = {
   bands: ['Map'],
 };
 
-Map.addLayer(WCv1001st, visualization, "ESA Worldcover");
-Map.centerObject(WCv1001st, 3);
+Map.addLayer(WCv1001st, visualization, "ESA Worldcover", false);
+Map.centerObject(geometry);
 
 // Alternative method that remaps and includes a legend
 
@@ -109,3 +124,30 @@ function addCategoricalLegend(panel, dict, title) {
 
 // Add the legend to the map
 addCategoricalLegend(legend, dict, 'ESA WorldCover 2020 10m');
+
+var WCMaskWater = WCmosaic.eq(7);
+
+//FILTERING AND MASKING
+// Filter collection to ROI and dates of interest
+// Finally, apply the mask to every image in the collection using map
+var L8_Water = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+.filterBounds(geometry)
+.filterDate('2020-01-01','2022-01-01')
+.map(function(image){
+  return image.updateMask(WCMaskWater)})
+.map(function(image) {
+  return image.clip(geometry)})
+// Applies Collection 2 scaling factors.
+.map(function ScaleFactors(image) {
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
+  return image.addBands(opticalBands, null, true);
+});
+
+var L8Vis = 
+{
+  min: 0,
+  max: 0.35,
+  bands: ['SR_B4', 'SR_B3', 'SR_B2']
+};
+
+Map.addLayer(L8_Water, L8Vis, 'Landsat 8 Land Masked');
