@@ -8,8 +8,8 @@ var geometry =
       }
     ] */
     ee.Geometry.Polygon(
-        [[[-0.06395574689128214, 51.93581449103455],
-          [-0.06395574689128214, 51.201736834752346],
+        [[[-1.1213898289225321, 51.93581449103455],
+          [-1.1213898289225321, 51.201736834752346],
           [1.5208220851399679, 51.201736834752346],
           [1.5208220851399679, 51.93581449103455]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
@@ -21,7 +21,7 @@ var visualization = {
 };
 
 Map.addLayer(WCv1001st, visualization, "ESA Worldcover", false);
-Map.centerObject(geometry);
+Map.centerObject(geometry, 10);
 
 // Alternative method that remaps and includes a legend
 
@@ -130,14 +130,14 @@ var WCMaskWater = WCmosaic.eq(7);
 //FILTERING AND MASKING
 // Filter collection to ROI and dates of interest
 // Finally, apply the mask to every image in the collection using map
-var L8_Water = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+var L8_Water = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
 .filterBounds(geometry)
-.filterDate('2020-01-01','2022-01-01')
+.filterDate('2022-01-16','2022-02-18')
+// Applies Collection 2 scaling factors.
 .map(function(image){
   return image.updateMask(WCMaskWater)})
 .map(function(image) {
   return image.clip(geometry)})
-// Applies Collection 2 scaling factors.
 .map(function ScaleFactors(image) {
   var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
   return image.addBands(opticalBands, null, true);
