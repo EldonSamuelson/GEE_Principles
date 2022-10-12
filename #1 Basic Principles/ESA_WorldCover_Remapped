@@ -23,7 +23,7 @@ var visualization = {
 Map.addLayer(WCv1001st, visualization, "ESA Worldcover", false);
 Map.centerObject(geometry, 10);
 
-// Alternative method that remaps and includes a legend
+// Alternative method that remaps for easier masking and legends
 
 var WCv100 = ee.ImageCollection("ESA/WorldCover/v100");
 
@@ -60,7 +60,34 @@ var WCmosaic = WCv100.mosaic().remap([10,20,30,40,50,60,70,80,90,95,100],[0,1,2,
 // Add image to the map
 Map.addLayer(WCmosaic, {min:0, max:10, palette:dict['colours']}, 'WorldCover 2021 10m');
 
-// LEGEND
+
+//FILTERING AND MASKING
+// Filter collection to ROI and dates of interest
+// Finally, apply the mask to every image in the collection using .map
+var WCMaskWater = WCmosaic.eq(7);
+var L8_Water = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+.filterBounds(geometry)
+.filterDate('2022-01-16','2022-02-18')
+// Applies Collection 2 scaling factors.
+.map(function(image){
+  return image.updateMask(WCMaskWater)})
+.map(function(image) {
+  return image.clip(geometry)})
+.map(function ScaleFactors(image) {
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
+  return image.addBands(opticalBands, null, true);
+});
+
+var L8Vis = 
+{
+  min: 0,
+  max: 0.35,
+  bands: ['SR_B4', 'SR_B3', 'SR_B2']
+};
+
+Map.addLayer(L8_Water, L8Vis, 'Landsat 8 Land Masked');
+
+// LANDCOVER LEGEND
 // Create a panel to hold the legend widget
 var legend = ui.Panel({
   style: {
@@ -124,30 +151,3 @@ function addCategoricalLegend(panel, dict, title) {
 
 // Add the legend to the map
 addCategoricalLegend(legend, dict, 'ESA WorldCover 2020 10m');
-
-var WCMaskWater = WCmosaic.eq(7);
-
-//FILTERING AND MASKING
-// Filter collection to ROI and dates of interest
-// Finally, apply the mask to every image in the collection using map
-var L8_Water = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
-.filterBounds(geometry)
-.filterDate('2022-01-16','2022-02-18')
-// Applies Collection 2 scaling factors.
-.map(function(image){
-  return image.updateMask(WCMaskWater)})
-.map(function(image) {
-  return image.clip(geometry)})
-.map(function ScaleFactors(image) {
-  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
-  return image.addBands(opticalBands, null, true);
-});
-
-var L8Vis = 
-{
-  min: 0,
-  max: 0.35,
-  bands: ['SR_B4', 'SR_B3', 'SR_B2']
-};
-
-Map.addLayer(L8_Water, L8Vis, 'Landsat 8 Land Masked');
