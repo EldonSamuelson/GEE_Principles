@@ -1,0 +1,53 @@
+var LCM25 = ee.Image("users/SeamusWOD/Imagery/Derivatives/UKCEH_LCM25_2015");
+
+var LCM25M = LCM25.select('b1');
+
+var LCMdict = {
+  "names": [
+    "Broadleaf Woodland",	
+    "Coniferous Woodland",
+    "Arable Land and Horticulture",
+    "Improved Grassland",
+    "Neutral Grassland",
+    "Calcerous Grassland",
+    "Acid Grassland",
+    "Fen, Marsh, Swamp",
+    "Heather",
+    "Heather Grassland",
+    "Bog",
+    "Inland Rock/Montane",
+    "Saltwater",
+    "Freshwater",
+    "Supra-Littoral Rock",
+    "Supra-Littoral Sediment",
+    "Littoral Rock",
+    "Littoral Sediment",
+    "Saltmarsh",
+    "Urban",
+    "Suburban"
+  ],
+  "colours": [
+    '#ff0000',
+    '#176515',
+    '#833309',
+    '#35f000',
+    '#5cf596',
+    '#78bc3c',
+    '#a89720',
+    '#fffc00',
+    '#860bb3',
+    '#faabdb',
+    '#2d9581',
+    '#d6d7dd',
+    '#000f69',
+    '#0f3ce2',
+    '#d0ca00',
+    '#d0ca00',
+    '#fdfa8c',
+    '#fdfa8c',
+    '#8cbafd',
+    '#000000',
+    '#969696'
+  ]};
+
+Map.addLayer(LCM25M, {min:1, max:21, palette:LCMdict['colours']}, 'CEH Landcover 2015, 25m');
