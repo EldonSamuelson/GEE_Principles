@@ -1,0 +1,41 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-10.960937500000009, 55.460542654859125],
+          [-10.960937500000009, 51.29668615297515],
+          [-5.24804687500001, 51.29668615297515],
+          [-5.24804687500001, 55.460542654859125]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+// GPM V6 30 minute data around hurricane Dorian for a single day.
+var START_DATE = ee.Date('2022-11-01');
+var END_DATE = ee.Date('2022-11-23');
+
+var range = ee.Date('2022-11-18').getRange('year');
+var dataset = ee.ImageCollection('NASA/GPM_L3/IMERG_V06')
+    .filterDate(START_DATE, END_DATE)
+    .map(function(image) {
+                    return image.clip(geometry);
+                  });
+
+// Select the max precipitation and mask out low precipitation values.
+var precipitation = dataset.select('precipitationCal');
+var mask = precipitation
+  .map(function(image){
+    return image.gt(0.1)})
+  .map(function(image) {
+    return image.clip(geometry)});
+
+var palette = [
+  '000096','0064ff', '00b4ff', '33db80', '9beb4a',
+  'ffeb00', 'ffb300', 'ff6400', 'eb1e00', 'af0000'
+];
+var precipitationVis = {min: 0.0, max: 15.0, palette: palette};
+Map.addLayer(precipitation, precipitationVis, 'Precipitation');
+Map.centerObject(geometry);
