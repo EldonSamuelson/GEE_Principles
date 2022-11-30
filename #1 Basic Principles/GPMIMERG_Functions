@@ -39,3 +39,6 @@ var palette = [
 var precipitationVis = {min: 0.0, max: 15.0, palette: palette};
 Map.addLayer(precipitation, precipitationVis, 'Precipitation');
 Map.centerObject(geometry);
+
+
+// https://gis.stackexchange.com/questions/402002/reducing-multiple-ndvi-timeseries-values-for-single-date-at-pixel-level
