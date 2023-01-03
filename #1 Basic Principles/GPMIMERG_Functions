@@ -15,7 +15,7 @@ var geometry =
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // GPM V6 30 minute data around hurricane Dorian for a single day.
 var START_DATE = ee.Date('2022-11-01');
-var END_DATE = ee.Date('2022-11-23');
+var END_DATE = ee.Date('2022-11-30');
 
 var range = ee.Date('2022-11-18').getRange('year');
 var dataset = ee.ImageCollection('NASA/GPM_L3/IMERG_V06')
