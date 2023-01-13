@@ -21,11 +21,12 @@ var IMERG = ee.ImageCollection('NASA/GPM_L3/IMERG_V06')
     .map(function(image) {
       return image.clip(geometry);
       });
+print(IMERG);
 // Select the max precipitation and mask out low precipitation values.
 var precipitation = IMERG.select('precipitationCal');
-var mask = precipitation
+/*var mask = precipitation
   .map(function(image){
-    return image.gt(0.1)});
+    return image.gt(0.1)});*/
 
 //Step 1
 // Create a function to extract the date of acquisition of the  images
@@ -59,9 +60,9 @@ var reduceImgs = function(date){
 };
 
 // Map the previous function over the dates object
-var imgColNew = dates.map(reduceImgs);
+var DailyAccumulate = dates.map(reduceImgs);
 // Create a new image collection from the previous list of images
-imgColNew = ee.ImageCollection.fromImages(imgColNew);
+DailyAccumulate = ee.ImageCollection.fromImages(DailyAccumulate);
 
 //Palette and Visualisation
 var palette = [
@@ -72,21 +73,17 @@ var precipitationVis = {min: 0.0, max: 15.0, palette: palette};
 Map.addLayer(precipitation, precipitationVis, 'Precipitation, Non-Reduced');
 Map.centerObject(geometry);
 
-Map.addLayer(imgColNew, precipitationVis, 'Precipitation, Daily Mean');
+Map.addLayer(DailyAccumulate, precipitationVis, 'Precipitation, Daily Mean');
 
-print(imgColNew);
+print(DailyAccumulate);
 
 // Make chart, indicate the desired reducer to apply over the complete polygon and the desired scale 
 var chart = ui.Chart.image.series({
-    imageCollection: imgColNew.select('precipitationCal'),
+    imageCollection: DailyAccumulate.select('precipitationCal'),
     region: geometry,
     scale: 11132,
     reducer: ee.Reducer.median(),
-    }).setOptions({/*
-      *TRENDS DO NOT WORK WITH TIME, EXCEPT DoY*
-      trendlines: {0: {
-        color: 'CC0000'
-      }},*/
+    }).setOptions({
       lineWidth: 1,
       pointSize: 3,
       title: 'Precipitation Test Chart',
@@ -94,7 +91,7 @@ var chart = ui.Chart.image.series({
       hAxis: {title: 'Date (ISO 8601)', format: 'YYYY-MM-dd', gridlines: {count: 12}}
     });
 var chart2 = ui.Chart.image.doySeries({
-    imageCollection: imgColNew.select('precipitationCal'),
+    imageCollection: DailyAccumulate.select('precipitationCal'),
     region: geometry,
     scale: 11132,
     regionReducer: ee.Reducer.median(),
