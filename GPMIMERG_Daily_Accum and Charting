@@ -1,0 +1,117 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = 
+    /* color: #0b4a8b */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-5.358847007219711, 53.553297207048445],
+          [-5.358847007219711, 51.32367760132269],
+          [-2.2716888040947114, 51.32367760132269],
+          [-2.2716888040947114, 53.553297207048445]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+var START_DATE = ee.Date('2022-01-01');
+var END_DATE = ee.Date('2022-12-31');
+
+var collection = ee.ImageCollection('NASA/GPM_L3/IMERG_V06')
+    .filterDate(START_DATE, END_DATE)
+    .map(function(image) {
+      return image.clip(geometry);
+      });
+// Select the max precipitation and mask out low precipitation values.
+var precipitation = collection.select('precipitationCal');
+var mask = precipitation
+  .map(function(image){
+    return image.gt(0.1)});
+
+//Step 1
+// Create a function to extract the date of acquisition of the  images
+var consult = function(image){
+  var result = ee.Dictionary({
+    date: ee.Date(image.get('system:time_start')).format('yyyy-MM-dd')
+  });
+  return ee.Feature(null, result);
+};
+
+// Map this function to the filtered collection
+var dates = precipitation.map(consult);
+// Aggregate the FeatureCollection over the 'date' property
+dates = dates.aggregate_array('date');
+// Get distinct values of dates
+dates = dates.distinct();
+print('Dates List', dates);
+
+//Step 2
+// Create function to filter images by the dates stored in the previous dates object
+var reduceImgs = function(date){
+  // Create end date as 1 day after the date passed to the function
+  var date2 = ee.Date(ee.String(date)).advance(1,'day');
+  // Filter collection according to date and date2
+  var dayCollection = precipitation.filterDate(ee.Date(date), date2);
+  // Calculate mean of the filtered collection
+  // THIS NEEDS TO BE AN AGGREGATE OR SUM OF EACH DAY, NOT MEAN AVERAGE
+  var result = dayCollection.sum();
+  // Return the mean image and set the system start property = date
+  return ee.Image(result).set('system:time_start', ee.Date(date));
+};
+
+// Map the previous function over the dates object
+var imgColNew = dates.map(reduceImgs);
+// Create a new image collection from the previous list of images
+imgColNew = ee.ImageCollection.fromImages(imgColNew);
+
+//Palette and Visualisation
+var palette = [
+  '000096','0064ff', '00b4ff', '33db80', '9beb4a',
+  'ffeb00', 'ffb300', 'ff6400', 'eb1e00', 'af0000'
+];
+var precipitationVis = {min: 0.0, max: 15.0, palette: palette};
+Map.addLayer(precipitation, precipitationVis, 'Precipitation, Non-Reduced');
+Map.centerObject(geometry);
+
+Map.addLayer(imgColNew, precipitationVis, 'Precipitation, Daily Mean');
+
+print(imgColNew);
+
+// Make chart, indicate the desired reducer to apply over the complete polygon and the desired scale 
+var chart = ui.Chart.image.series({
+    imageCollection: imgColNew.select('precipitationCal'),
+    region: geometry,
+    reducer: ee.Reducer.median(),
+    }).setOptions({/*
+      *TRENDS DO NOT WORK WITH TIME, EXCEPT DoY*
+      trendlines: {0: {
+        color: 'CC0000'
+      }},*/
+      lineWidth: 1,
+      pointSize: 3,
+      title: 'Precipitation Test Chart',
+      vAxis: {title: 'Daily Max Accumulated Precipitation, mm'},
+      hAxis: {title: 'Date (ISO 8601)', format: 'YYYY-MM-dd', gridlines: {count: 12}}
+    });
+var chart2 = ui.Chart.image.doySeries({
+    imageCollection: imgColNew.select('precipitationCal'),
+    region: geometry,
+    regionReducer: ee.Reducer.median(),
+    }).setOptions({
+      trendlines: {0: {
+        type: 'polynomial',
+        degree: 60,
+        visibleInLegend: true,
+        showR2: true,
+        color: 'CC0000',
+        lineDashSyle: [10,10],
+        pointsVisible:false
+        
+      }},
+      lineWidth: 1,
+      pointSize: 3,
+      title: 'Precipitation Test Chart',
+      vAxis: {title: 'Daily Max Accumulated Precipitation, mm'},
+      hAxis: {title: 'Day of Year', gridlines: {count: 12}}
+    });
+print(chart);
+print(chart2);
