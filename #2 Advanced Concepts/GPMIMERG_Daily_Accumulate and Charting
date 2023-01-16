@@ -21,7 +21,8 @@ var IMERG = ee.ImageCollection('NASA/GPM_L3/IMERG_V06')
     .map(function(image) {
       return image.clip(geometry);
       });
-print(IMERG);
+print('IMERG Half-Hourly', IMERG);
+print ('This always brings errors for longer than 1 week');
 // Select the max precipitation and mask out low precipitation values.
 var precipitation = IMERG.select('precipitationCal');
 /*var mask = precipitation
@@ -36,15 +37,13 @@ var consult = function(image){
   });
   return ee.Feature(null, result);
 };
-
 // Map this function to the filtered collection
 var dates = precipitation.map(consult);
 // Aggregate the FeatureCollection over the 'date' property
 dates = dates.aggregate_array('date');
 // Get distinct values of dates
 dates = dates.distinct();
-print('Dates List', dates);
-
+print('Daily Dates List', dates);
 //Step 2
 // Create function to filter images by the dates stored in the previous dates object
 var reduceImgs = function(date){
@@ -75,7 +74,7 @@ Map.centerObject(geometry);
 
 Map.addLayer(DailyAccumulate, precipitationVis, 'Precipitation, Daily Mean');
 
-print(DailyAccumulate);
+print('IMERG Max Daily Accumulate', DailyAccumulate);
 
 // Make chart, indicate the desired reducer to apply over the complete polygon and the desired scale 
 var chart = ui.Chart.image.series({
