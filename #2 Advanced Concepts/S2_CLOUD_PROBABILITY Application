@@ -1,7 +1,8 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var ThamesWS = ee.FeatureCollection("users/SeamusWOD/Thames_River_Basin");
+var ThamesWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/Polygons/Thames_River_Basin");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-var s2Sr = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED');
+var s2ToA = ee.ImageCollection('COPERNICUS/S2');
+var s2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED');
 var s2Clouds = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY');
 
 var START_DATE = ee.Date('2022-04-25');
@@ -28,21 +29,38 @@ function maskEdges(s2_img) {
 // Filter input collections by desired data range and region.
 var criteria = ee.Filter.and(
     ee.Filter.bounds(region), ee.Filter.date(START_DATE, END_DATE));
-s2Sr = s2Sr.filter(criteria).map(maskEdges);
+
+s2ToA = s2ToA.filter(criteria).map(maskEdges);
+s2SR = s2SR.filter(criteria).map(maskEdges);
 s2Clouds = s2Clouds.filter(criteria);
 
-// Join S2 SR with cloud probability dataset to add cloud mask.
-var s2SrWithCloudMask = ee.Join.saveFirst('cloud_mask').apply({
-  primary: s2Sr,
+// Join S2's with cloud probability dataset to add cloud mask.
+var s2ToAWithCloudMask = ee.Join.saveFirst('cloud_mask').apply({
+  primary: s2ToA,
   secondary: s2Clouds,
   condition:
       ee.Filter.equals({leftField: 'system:index', rightField: 'system:index'})
 });
 
-var s2CloudMasked =
-    ee.ImageCollection(s2SrWithCloudMask).map(maskClouds);
-var rgbVis = {min: 0, max: 0.35, bands: ['B4', 'B3', 'B2']};
+var s2SRWithCloudMask = ee.Join.saveFirst('cloud_mask').apply({
+  primary: s2SR,
+  secondary: s2Clouds,
+  condition:
+      ee.Filter.equals({leftField: 'system:index', rightField: 'system:index'})
+});
+
+var s2ToACloudMasked =
+    ee.ImageCollection(s2ToAWithCloudMask).map(maskClouds);
+var ToArgbVis = {min: 0, max: 0.35, bands: ['B4', 'B3', 'B2']};
+
+var s2SRCloudMasked =
+    ee.ImageCollection(s2SRWithCloudMask).map(maskClouds);
+var SRrgbVis = {min: 0, max: 0.35, bands: ['B4', 'B3', 'B2']};
 
 Map.addLayer(
-    s2CloudMasked, rgbVis, 'S2 SR masked at ' + MAX_CLOUD_PROBABILITY + '%',
+    s2ToACloudMasked, ToArgbVis, 'S2 TOA masked at ' + MAX_CLOUD_PROBABILITY + '%',
+    true);
+
+Map.addLayer(
+    s2SRCloudMasked, SRrgbVis, 'S2 SR masked at ' + MAX_CLOUD_PROBABILITY + '%',
     true);
