@@ -1,0 +1,33 @@
+Map.setCenter(17.93, 7.71, 2);
+
+var PROBA_DN = ee.ImageCollection('VITO/PROBAV/C1/S1_TOC_100M')
+                  .filter(ee.Filter.date('2018-03-01', '2018-04-01'));
+                  
+// DN Visualisation & Mapping
+var falseColorDN = PROBA_DN.select(['RED', 'NIR', 'BLUE']);
+var falseColorDNVis = {
+  min: 20.0,
+  max: 2000.0,
+};
+
+Map.addLayer(falseColorDN, falseColorDNVis, 'DN False Colour');
+
+// SR Visualisation and Mapping
+// Scaling Function to convert Top of Canopy DN to ToC PV (Reflectance)
+function PROBAScaling(image) {
+  return image.select('RED','BLUE','NIR','SWIR')
+              .divide(2000)
+              .copyProperties(image, ["system:time_start"])
+              ;
+  }
+// Apply scaling
+var PROBA_SR = PROBA_DN.map(PROBAScaling);
+
+// SR Visualisation
+var falseColorSR = PROBA_SR.select(['RED', 'NIR', 'BLUE']);
+var falseColorSRVis = {
+  min: 0,
+  max: 1,
+};
+
+Map.addLayer(falseColorSR, falseColorSRVis, 'SR False Colour');
