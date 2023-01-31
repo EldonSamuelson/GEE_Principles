@@ -14,6 +14,7 @@ Map.addLayer(falseColorDN, falseColorDNVis, 'DN False Colour');
 
 // SR Visualisation and Mapping
 // Scaling Function to convert Top of Canopy DN to ToC PV (Reflectance)
+// Scaling applied based on PROBA User Manual (https://publications.vito.be/2017-1333-probav-products-user-manual.pdf)
 function PROBAScaling(image) {
   return image.select('RED','BLUE','NIR','SWIR')
               .divide(2000)
