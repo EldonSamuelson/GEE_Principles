@@ -1,0 +1,64 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-123.43323119795764, 38.527677886581756],
+          [-123.43323119795764, 36.40904561391272],
+          [-120.78552611983264, 36.40904561391272],
+          [-120.78552611983264, 38.527677886581756]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+// LANDSAT CLOUD SCORING MASKING
+
+// ## INDIVIDUAL IMAGE MASKING ##
+// Load a cloudy Landsat scene and display it.
+var cloudy_scene = ee.Image('LANDSAT/LC08/C02/T1_TOA/LC08_044034_20140926');
+//Map.centerObject(geometry, 10);
+Map.addLayer(cloudy_scene, {bands: ['B4', 'B3', 'B2'], max: 0.4}, 'TOA Image', false);
+
+// Add a cloud score band.  It is automatically called 'cloud'.
+var scored = ee.Algorithms.Landsat.simpleCloudScore(cloudy_scene);
+
+// Create a mask from the cloud score and combine it with the image mask.
+// >50 masks cloud 'cores' and ignores urban areas, but leaves cirrus and cloud edges.
+// 20 masks clouds as well as urban areas, but not the thinnest cloud edges.
+// <10 masks clouds and egdes well, but also land and urban areas
+var mask = scored.select(['cloud']).lte(50);
+
+// Apply the mask to the image and display the result.
+var masked = cloudy_scene.updateMask(mask);
+Map.addLayer(masked, {bands: ['B4', 'B3', 'B2'], max: 0.4}, 'TOA Image Masked',false);
+
+// ## IMAGE COLECTION CLOUD MASKING ##
+// Load a Landsat colection and display it.
+var L8_TOA = ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')
+          .filterDate('2021-01-01','2022-01-01')
+          .filterBounds(geometry);
+
+// Applies Cloud Scoring
+function Scored (image) {
+  var Clouds = ee.Algorithms.Landsat.simpleCloudScore(image);
+    return Clouds;
+}
+
+var L8_TOA_Scored = L8_TOA.map(Scored);
+
+Map.addLayer (L8_TOA_Scored, {bands: ['B4', 'B3', 'B2'], min: 0, max: 0.5}, 'TOA Collection', false);
+
+var CloudCount = function(image) {
+    var Mask = image.select(['cloud']);
+     return image.addBands(Mask.lte(25).rename('CloudMask'));
+  };
+var CloudMask = function(image) {
+    var Mask = image.select(['CloudMask']);
+     return image.updateMask(Mask.eq(1));
+  };
+
+var L8_TOA_Counted = L8_TOA_Scored.map(CloudCount);
+var L8_TOA_Masked = L8_TOA_Counted.map(CloudMask);
+Map.addLayer (L8_TOA_Masked, {bands: ['B4', 'B3', 'B2'], min: 0, max: 0.5}, 'TOA Collection Masked', false);
