@@ -21,8 +21,8 @@ var IMERG = ee.ImageCollection('NASA/GPM_L3/IMERG_V06')
     .map(function(image) {
       return image.clip(geometry);
       });
-print('IMERG Half-Hourly', IMERG);
-print ('This always brings errors for longer than 1 week');
+print('IMERG Half-Hourly - This will Error', IMERG);
+print ('IMERG Half Hourly always brings errors for longer than 1 week');
 // Select the max precipitation and mask out low precipitation values.
 var precipitation = IMERG.select('precipitationCal');
 /*var mask = precipitation
@@ -51,9 +51,9 @@ var reduceImgs = function(date){
   var date2 = ee.Date(ee.String(date)).advance(1,'day');
   // Filter collection according to date and date2
   var dayCollection = precipitation.filterDate(ee.Date(date), date2);
-  // Calculate mean of the filtered collection
-  // THIS NEEDS TO BE AN AGGREGATE OR SUM OF EACH DAY, NOT MEAN AVERAGE
-  var result = dayCollection.sum();
+  // Calculate the sum of all half-hourly values for each day, 
+  // and divide by 2 because the output is in mm/hour
+  var result = dayCollection.sum().divide(2);
   // Return the mean image and set the system start property = date
   return ee.Image(result).set('system:time_start', ee.Date(date));
 };
@@ -68,10 +68,11 @@ var palette = [
   '000096','0064ff', '00b4ff', '33db80', '9beb4a',
   'ffeb00', 'ffb300', 'ff6400', 'eb1e00', 'af0000'
 ];
-var precipitationVis = {min: 0.0, max: 15.0, palette: palette};
-Map.addLayer(precipitation, precipitationVis, 'Precipitation, Non-Reduced');
+var precipitationVis = {min: 0.0, max: 20.0, palette: palette};
+// This non reduced layer will take AGES to load in.
+Map.addLayer(precipitation, precipitationVis, 'Precipitation, Non-Reduced', false);
 Map.centerObject(geometry);
-
+// The Daily Accum will take relatively shorter
 Map.addLayer(DailyAccumulate, precipitationVis, 'Precipitation, Daily Mean');
 
 print('IMERG Max Daily Accumulate', DailyAccumulate);
@@ -81,12 +82,12 @@ var chart = ui.Chart.image.series({
     imageCollection: DailyAccumulate.select('precipitationCal'),
     region: geometry,
     scale: 11132,
-    reducer: ee.Reducer.median(),
+    reducer: ee.Reducer.mean(),
     }).setOptions({
       lineWidth: 1,
       pointSize: 3,
       title: 'Precipitation Test Chart',
-      vAxis: {title: 'Daily Max Accumulated Precipitation, mm'},
+      vAxis: {title: 'Daily Mean Accumulated Precipitation, mm/hr'},
       hAxis: {title: 'Date (ISO 8601)', format: 'YYYY-MM-dd', gridlines: {count: 12}}
     });
 var chart2 = ui.Chart.image.doySeries({
@@ -107,8 +108,8 @@ var chart2 = ui.Chart.image.doySeries({
       }},
       lineWidth: 1,
       pointSize: 3,
-      title: 'Precipitation Test Chart',
-      vAxis: {title: 'Daily Max Accumulated Precipitation, mm'},
+      title: 'Precipitation Test Chart with Polynomial Trendline',
+      vAxis: {title: 'Daily Mean Accumulated Precipitation, mm/hr'},
       hAxis: {title: 'Day of Year', gridlines: {count: 12}}
     });
 print(chart);
