@@ -1,0 +1,73 @@
+// Original Source: https://gis.stackexchange.com/questions/354734/how-to-export-the-chart-as-csv-file-automatically-without-clicking-the-top-righ
+
+
+// the coordinate of a point, I enter it manually every time.       
+    var lng = -92.56894444;
+    var lat = 37.21702778;
+    var r = ee.Geometry.Point(lng, lat); // r is the point of interest
+    // Load Landsat 7 imagery and filter it
+     var collection = ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
+        .filterDate('2011-01-01','2011-12-31'); // the period of interest.
+
+
+// function to exprt a CSV file
+function exportCSV(collection, point, name){
+  
+  // filter the images
+  collection = collection.filterBounds(point);
+  
+  // get the values of band 4
+  var feats = collection.map(function(image){
+    return ee.Feature(null, image.select('SR_B4').reduceRegion(ee.Reducer.mean(), point, 30))
+                .set('system:time_start', image.get('system:time_start'));
+  });
+  
+  print('test export', feats);
+  
+  // if a name is defined
+  var discription = 'YOURDESCRIPTION'; 
+    if (name) { discription = name; } 
+  
+  // export a CSV file
+  Export.table.toDrive({
+    collection: feats, 
+    description: discription, 
+    folder: 'YOURFOLDER', 
+    fileFormat: 'CSV', 
+    selectors: ['system:time_start', 'SR_B4']
+  });
+}
+
+// apply function and export just one point
+exportCSV(collection, r)
+
+// apply the function, put coordinates in a list to export multiple csv with multiple donwloads
+var somePoints = [ee.Geometry.Point(-92, 37), 
+                  ee.Geometry.Point(-93, 37), 
+                  ee.Geometry.Point(-94, 37)]; // make a client-side list
+somePoints.map(function(geom){
+  exportCSV(collection, geom);
+});
+
+// Probably, you want to add some info so your downloads have different names
+// here is a simple example
+var somePoints2 = [[ee.Geometry.Point(-92, 37), 'point1'], 
+                  [ee.Geometry.Point(-93, 37), 'point2'], 
+                  [ee.Geometry.Point(-94, 37), 'point3']]; // make a client-side list
+somePoints2.map(function(geom){
+  exportCSV(collection, geom[0], geom[1]);
+});
+
+// Or you will maybe have a featureCollection with points, each have an ID
+// then consider something like this
+var featCol = ee.FeatureCollection([ee.Feature(ee.Geometry.Point(-92, 37), {id: 'point1'}), 
+                  ee.Feature(ee.Geometry.Point(-93, 37), {id: 'point2'}), 
+                  ee.Feature(ee.Geometry.Point(-94, 37), {id: 'point3'})]);
+
+featCol.evaluate(function(evaluatedFeatures) { // get to the client-side
+  print(evaluatedFeatures)
+  evaluatedFeatures.features.map(function(feat){
+    exportCSV(collection, ee.Geometry(feat.geometry), feat.properties.id); 
+          // change 'id' to the property name of the property you want to plot
+  });
+});
