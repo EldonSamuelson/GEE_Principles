@@ -10,7 +10,7 @@
  */
 
 // Country, String. Used the Printed List of Countries to check availability
-var Country = 'Kyrgyzstan';
+var Country = 'Japan';
 // EPSG Projection, 3857 is Web-Mercator, but local scales are better
 var Projection = '3857';
 // Scale of Hexes in meters - cannot be smaller than image resolution
