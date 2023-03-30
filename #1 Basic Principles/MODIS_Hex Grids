@@ -10,11 +10,11 @@
  */
 
 // Country, String. Used the Printed List of Countries to check availability
-var Country = 'Japan';
+var Country = 'United Kingdom';
 // EPSG Projection, 3857 is Web-Mercator, but local scales are better
 var Projection = '3857';
 // Scale of Hexes in meters - cannot be smaller than image resolution
-var hexScale = 25000;
+var hexScale = 5000;
 
 // Script Internals, don't edit past here.
 
@@ -56,6 +56,8 @@ grid = grid.updateMask(mask);
 var ndvi = ee.ImageCollection('MODIS/006/MOD13A2')
   .filterDate('2020-04-01', '2020-05-01').mean().select('NDVI')
   .addBands(grid);
+  
+
 
 // Calculate mean NDVI per hexagon.
 var meanNdvi = ndvi.reduceConnectedComponents(ee.Reducer.mean(), "hexgrid", 256);
