@@ -83,7 +83,7 @@ var ButtonPanel = ui.Panel({
 });
 
 ButtonPanel.add(ui.Button({
-  label: 'Timelapse by S2 MGRS Tile',
+  label: 'S2 Timelapse by MGRS Tile',
   style: {stretch: 'horizontal', fontWeight: 'bold', fontSize: '15px', Color: 'black'},
   onClick: function() {
     // Screen Viewcontrols
@@ -93,10 +93,12 @@ ButtonPanel.add(ui.Button({
     Map.setOptions("HYBRID");
     // TimeSeries Charting On-Click
     Map.onClick(function(coords) {
-      var location = ' | Lon: ' + coords.lon.toFixed(3) +
-                   ', Lat: ' + coords.lat.toFixed(3);
-      var point = ee.Geometry.Point(coords.lon, coords.lat);
+      var Location = coords.lon.toFixed(3) + coords.lat.toFixed(3);
+      var Point = ee.Geometry.Point(coords.lon, coords.lat);
       
+      var sentinel2SceneAreas = ee.FeatureCollection('users/wiell/SepalResources/sentinel2SceneAreas');
+      var scenePoint = sentinel2SceneAreas.filterBounds(Point);
+      print(scenePoint);
       var S2_HR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
       .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20));
       
