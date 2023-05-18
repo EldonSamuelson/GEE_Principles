@@ -88,25 +88,36 @@ ButtonPanel.add(ui.Button({
   onClick: function() {
     // Screen Viewcontrols
     Map.clear();
-    Map.setControlVisibility(false);
+    Map.setControlVisibility(true);
     Map.style().set('cursor', 'crosshair');
-    Map.setOptions("HYBRID");
-    // TimeSeries Charting On-Click
+    // Adds MGRS Tiles to the Map to help selection
+    var sentinel2SceneAreas = ee.FeatureCollection('users/wiell/SepalResources/sentinel2SceneAreas');
+    var S2SAVis = sentinel2SceneAreas.style({
+      color: 'black',
+      width: 2,
+      fillColor: 'FFFFFF00',  
+      lineType: 'dotted'
+    });
+    
+    Map.addLayer(S2SAVis,null,'S2Scenes');
+    print('Click a suitable Tile - They will be removed afterwards');
+    // Select MGRS On-Click
     Map.onClick(function(coords) {
       var Location = coords.lon.toFixed(3) + coords.lat.toFixed(3);
       var Point = ee.Geometry.Point(coords.lon, coords.lat);
+      // Clears the MGRS Tiles from view after selection
+      Map.clear();
       
       //MGRS Tile Selector by Point Location
-      var sentinel2SceneAreas = ee.FeatureCollection('users/wiell/SepalResources/sentinel2SceneAreas');
       var scenePoint = sentinel2SceneAreas.filterBounds(Point).aggregate_first('name');
       
-
-      
       var S2_HR_MGRS = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filterDate(START, END)
       .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
       .filterMetadata('MGRS_TILE', 'EQUALS', scenePoint)
       ;
-      print(S2_HR_MGRS)
+      print('Collection filtered by Tile:');
+      print(scenePoint);
 });
   }
 }));
