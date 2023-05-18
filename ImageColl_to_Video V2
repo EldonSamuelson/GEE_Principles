@@ -13,6 +13,9 @@ var geometry =
           [-7.657259235985321, 51.12208186023682],
           [-7.657259235985321, 53.08930489192697]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
+var START = ee.date('2015-01-01');
+var END = ee.date('2023-05-15');
+
 var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
 .filterMetadata('MGRS_TILE', 'EQUALS','29UMT')
 //.filterBounds(geometry)
@@ -73,3 +76,36 @@ Export.video.toDrive({
     framesPerSecond: 2,
     region: Boundary
 });
+
+var ButtonPanel = ui.Panel({
+  layout: ui.Panel.Layout.flow('vertical'),
+  style: {width: '10%'}
+});
+
+ButtonPanel.add(ui.Button({
+  label: 'Timelapse by S2 MGRS Tile',
+  style: {stretch: 'horizontal', fontWeight: 'bold', fontSize: '15px', Color: 'black'},
+  onClick: function() {
+    // Screen Viewcontrols
+    Map.clear();
+    Map.setControlVisibility(false);
+    Map.style().set('cursor', 'crosshair');
+    Map.setOptions("HYBRID");
+    // TimeSeries Charting On-Click
+    Map.onClick(function(coords) {
+      var location = ' | Lon: ' + coords.lon.toFixed(3) +
+                   ', Lat: ' + coords.lat.toFixed(3);
+      var point = ee.Geometry.Point(coords.lon, coords.lat);
+      
+      var S2_HR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20));
+      
+      //MGRS Tile Selector by Point Location
+      var MGRS = S2_HR.filterMetadata
+      
+});
+  }
+}));
+
+// Adds the Button Panel to the Map
+ui.root.add(ButtonPanel);
