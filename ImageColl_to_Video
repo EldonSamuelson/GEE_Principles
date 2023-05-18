@@ -1,0 +1,55 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = 
+    /* color: #0b4a8b */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-10.77737642348532, 52.44724493560615],
+          [-10.77737642348532, 51.833679611351464],
+          [-3.982332478172821, 51.833679611351464],
+          [-3.982332478172821, 52.44724493560615]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+.filterBounds(geometry)
+.filterDate('2015-01-01','2023-05-01')
+.filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
+;
+
+var Clip_Img = Imagery.map(function(img){
+return img.clip(geometry).divide(10000).copyProperties(img, ["system:time_start"]);
+});
+
+var RGBVis = {
+  min: 0,
+  max: 0.25,
+  bands: ['B4', 'B3', 'B2'],
+};
+
+var NIRVis = {
+  min: 0,
+  max: 0.55,
+  bands: ['B8', 'B3', 'B2'],
+};
+
+var VidColl = Clip_Img
+  .map(function(image) {
+    return image.visualize(RGBVis);
+  });
+
+Map.addLayer(VidColl);
+  
+Export.video.toDrive({
+    folder: 'ee_Test',
+    collection: VidColl,
+    description: "myvideo" ,
+    maxFrames: 216000,
+    dimensions: 1080,
+    //scale: 100,
+    maxPixels: 1e13,
+    framesPerSecond: 24,
+    region: geometry
+});
