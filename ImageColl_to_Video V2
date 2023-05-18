@@ -13,9 +13,22 @@ var geometry =
           [-7.657259235985321, 51.12208186023682],
           [-7.657259235985321, 53.08930489192697]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
+// Date Range
 var START = ee.Date('2015-01-01');
 var END = ee.Date('2023-05-15');
+//Visualisations
+var RGBVis = {
+  min: 0,
+  max: 0.25,
+  bands: ['B4', 'B3', 'B2'],
+};
+var NIRVis = {
+  min: 0,
+  max: 0.55,
+  bands: ['B8', 'B3', 'B2'],
+};
 
+/*
 var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
 .filterMetadata('MGRS_TILE', 'EQUALS','29UMT')
 //.filterBounds(geometry)
@@ -30,25 +43,7 @@ return img.clip(geometry).divide(10000).copyProperties(img);
 //Inspect this (Layer 1) to allow filtering by MGRS tile
 print('Inspect Object Properties', Clip_Img);
 
-var VisCorrect = Imagery.map(function(img){
-  return img.divide(10000).copyProperties(img);
-});
 
-var RGBVis = {
-  min: 0,
-  max: 0.25,
-  bands: ['B4', 'B3', 'B2'],
-};
-
-var NIRVis = {
-  min: 0,
-  max: 0.55,
-  bands: ['B8', 'B3', 'B2'],
-};
-
-var VidColl = VisCorrect.map(function(image) {
-    return image.visualize(RGBVis);
-  });
 
 Map.addLayer(VidColl);
 
@@ -76,7 +71,7 @@ Export.video.toDrive({
     framesPerSecond: 2,
     region: Boundary
 });
-
+*/
 var ButtonPanel = ui.Panel({
   layout: ui.Panel.Layout.flow('vertical'),
   style: {width: '10%'}
@@ -98,7 +93,6 @@ ButtonPanel.add(ui.Button({
       fillColor: 'FFFFFF00',  
       lineType: 'dotted'
     });
-    
     Map.addLayer(S2SAVis,null,'S2Scenes');
     print('Click a suitable Tile - They will be removed afterwards');
     // Select MGRS On-Click
@@ -107,17 +101,37 @@ ButtonPanel.add(ui.Button({
       var Point = ee.Geometry.Point(coords.lon, coords.lat);
       // Clears the MGRS Tiles from view after selection
       Map.clear();
-      
       //MGRS Tile Selector by Point Location
-      var scenePoint = sentinel2SceneAreas.filterBounds(Point).aggregate_first('name');
-      
+      var Point2MGRS = sentinel2SceneAreas.filterBounds(Point).aggregate_first('name');
       var S2_HR_MGRS = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
       .filterDate(START, END)
       .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
-      .filterMetadata('MGRS_TILE', 'EQUALS', scenePoint)
-      ;
+      .filterMetadata('MGRS_TILE', 'EQUALS', Point2MGRS);
       print('Collection filtered by Tile:');
-      print(scenePoint);
+      print(Point2MGRS);
+      
+      // Functions to visualise
+      var DivProp = S2_HR_MGRS.map(function(img){
+        return img.divide(10000).copyProperties(img);
+      });
+      var VidColl_MGRS = DivProp.map(function(image) {
+        return image.visualize(RGBVis);
+      });
+      // Set the region as the filtered collection
+      var Boundary_MGRS = ee.FeatureCollection(S2_HR_MGRS);
+      
+      //Export the result to Drive
+      Export.video.toDrive({
+        folder: 'GEE_Timelapses',
+        collection: VidColl_MGRS,
+        description: "MGRS_Export" ,
+        maxFrames: 216000,
+        dimensions: 1080,
+        maxPixels: 1e13,
+        framesPerSecond: 2,
+        region: Boundary_MGRS
+      });
+      print('Export Task created - check Tasks');
 });
   }
 }));
