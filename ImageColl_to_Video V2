@@ -125,21 +125,16 @@ ButtonPanel.add(ui.Button({
       var SystemIndex = S2_HR_MGRS.map(function (image) {
         return image.set('SysIndex', image.toDictionary(['system:index']));
       });
-      print('Property keys and values of S2_HR_MGRS', SystemIndex); 
       var list = SystemIndex.aggregate_array('SysIndex');
-      print('Agg. Array List', list);
       var list_1st = list.get(0);
-      print('S2_L2A_IC, The First System:Index', list_1st);
       var S2_HR_MGRS_Mosaic = S2_HR_MGRS.mosaic().set(list_1st);
-      print('S2_HR_MGRS_Mosaic w/ Properties of the S2_HR_MGRS', S2_HR_MGRS_Mosaic);
       var index = S2_HR_MGRS_Mosaic.get('system:index');
-      var index = index.getInfo().slice(31,6);
-      print(index)
+      var index = index.getInfo().slice(31,37);
       //Export the result to Drive
       Export.video.toDrive({
         folder: 'GEE_Timelapses',
         collection: VidColl_MGRS,
-        description: "MGRS_Export",
+        description: "MGRS" + index + "_Export",
         maxFrames: 216000,
         dimensions: 1080,
         maxPixels: 1e13,
