@@ -132,9 +132,8 @@ ButtonPanel.add(ui.Button({
         region: Boundary_MGRS
       });
       print('Export Task created - check Tasks');
-});
+    });
   }
 }));
-
 // Adds the Button Panel to the Map
 ui.root.add(ButtonPanel);
