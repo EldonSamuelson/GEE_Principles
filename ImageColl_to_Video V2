@@ -1,0 +1,75 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var geometry = 
+    /* color: #0b4a8b */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-12.158563862450164, 53.08930489192697],
+          [-12.158563862450164, 51.12208186023682],
+          [-7.657259235985321, 51.12208186023682],
+          [-7.657259235985321, 53.08930489192697]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+.filterMetadata('MGRS_TILE', 'EQUALS','29UMT')
+//.filterBounds(geometry)
+.filterDate('2015-01-01','2023-05-01')
+.filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
+;
+
+var Clip_Img = Imagery.map(function(img){
+return img.clip(geometry).divide(10000).copyProperties(img);
+});
+
+//Inspect this (Layer 1) to allow filtering by MGRS tile
+print('Inspect Object Properties', Clip_Img);
+
+var VisCorrect = Imagery.map(function(img){
+  return img.divide(10000).copyProperties(img);
+});
+
+var RGBVis = {
+  min: 0,
+  max: 0.25,
+  bands: ['B4', 'B3', 'B2'],
+};
+
+var NIRVis = {
+  min: 0,
+  max: 0.55,
+  bands: ['B8', 'B3', 'B2'],
+};
+
+var VidColl = VisCorrect.map(function(image) {
+    return image.visualize(RGBVis);
+  });
+
+Map.addLayer(VidColl);
+
+var BoundaryS2 = ee.FeatureCollection(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED'));
+var Boundary = ee.FeatureCollection(Imagery);
+
+var fcVis = BoundaryS2.style({
+  color: '1e90ff',
+  width: 2,
+  fillColor: 'FFFFFF00',  
+  lineType: 'dotted'
+});
+
+
+Map.addLayer(fcVis,null,'S2 MGRS Tiles');
+  
+Export.video.toDrive({
+    folder: 'ee_Test',
+    collection: VidColl,
+    description: "MGRS_Export" ,
+    maxFrames: 216000,
+    dimensions: 1080,
+    //scale: 100,
+    maxPixels: 1e13,
+    framesPerSecond: 2,
+    region: Boundary
+});
