@@ -26,6 +26,7 @@ ButtonPanel.add(ui.Button({
   onClick: function() {
     // Screen Viewcontrols
     Map.clear();
+    Map.setOptions("HYBRID");
     Map.setControlVisibility(true);
     Map.style().set('cursor', 'crosshair');
     // Adds MGRS Tiles to the Map to help selection
