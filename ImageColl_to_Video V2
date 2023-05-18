@@ -13,8 +13,8 @@ var geometry =
           [-7.657259235985321, 51.12208186023682],
           [-7.657259235985321, 53.08930489192697]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-var START = ee.date('2015-01-01');
-var END = ee.date('2023-05-15');
+var START = ee.Date('2015-01-01');
+var END = ee.Date('2023-05-15');
 
 var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
 .filterMetadata('MGRS_TILE', 'EQUALS','29UMT')
@@ -96,15 +96,17 @@ ButtonPanel.add(ui.Button({
       var Location = coords.lon.toFixed(3) + coords.lat.toFixed(3);
       var Point = ee.Geometry.Point(coords.lon, coords.lat);
       
-      var sentinel2SceneAreas = ee.FeatureCollection('users/wiell/SepalResources/sentinel2SceneAreas');
-      var scenePoint = sentinel2SceneAreas.filterBounds(Point);
-      print(scenePoint);
-      var S2_HR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-      .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20));
-      
       //MGRS Tile Selector by Point Location
-      var MGRS = S2_HR.filterMetadata
+      var sentinel2SceneAreas = ee.FeatureCollection('users/wiell/SepalResources/sentinel2SceneAreas');
+      var scenePoint = sentinel2SceneAreas.filterBounds(Point).aggregate_first('name');
       
+
+      
+      var S2_HR_MGRS = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
+      .filterMetadata('MGRS_TILE', 'EQUALS', scenePoint)
+      ;
+      print(S2_HR_MGRS)
 });
   }
 }));
