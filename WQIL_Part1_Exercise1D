@@ -1,0 +1,31 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var Erie = 
+    /* color: #d63000 */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-83.63242886663139, 42.143634229872795],
+          [-83.63242886663139, 41.27427885193353],
+          [-81.59995816350639, 41.27427885193353],
+          [-81.59995816350639, 42.143634229872795]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+var dataset = ee.ImageCollection('COPERNICUS/S3/OLCI')
+                  .filterDate('2019-07-14', '2019-07-16').filterBounds(Erie);
+
+// Select bands for visualization and apply band-specific scale factors.
+var rgb = dataset.select(['Oa08_radiance', 'Oa06_radiance', 'Oa04_radiance'])
+              .median()
+              // Convert to radiance units.
+              .multiply(ee.Image([0.00876539, 0.0123538, 0.0115198]));
+
+var visParams = {
+  min: 0,
+  max: 6,
+  gamma: 1.5,
+};
+
+Map.setCenter(-79.8, 43.7, 7);
+Map.addLayer(rgb, visParams, 'RGB');
