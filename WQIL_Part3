@@ -1,0 +1,388 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var GLORIA = ee.FeatureCollection("users/seanemccartney/LakeErie_7-15-19"),
+    Erie = 
+    /* color: #07cb31 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-83.66276123046875, 42.749993911422024],
+          [-83.66276123046875, 41.29736791413342],
+          [-81.13041259765625, 41.29736791413342],
+          [-81.13041259765625, 42.749993911422024]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+
+// **************************************************************************************************************
+// ARSET Training - Monitoring Water Quality of Inland Lakes using Remote Sensing
+// Part 3: Assess Water Quality using Satellite and In Situ Observations
+// https://appliedsciences.nasa.gov/join-mission/training/english/arset-monitoring-water-quality-inland-lakes-using-remote-sensing
+// **************************************************************************************************************
+
+
+// =====================================================================================================
+//                              SELECT YOUR AREA OF INTEREST (AOI)  
+
+// Use the polygon-tool in the top left corner of the map pane to draw a bounding box around your study area. 
+
+//********************************************* Alternatively: *********************************************
+// Upload a shapefile via the 'Assets' tab in the upper left corner. Select 'NEW' => 'Shape files'
+// and upload the four relevant files of your shapefile (.dbf, .prj, .shp, .shx). Once uploaded, refresh
+// the assets and import your shapefile from the asset tab into this script by clicking the arrow symbol.
+
+
+// ee-palettes is a module for generating color palettes in Google Earth Engine (EE) to be applied to mapped data.
+// It was created by the Google Earth Engine community
+// To learn more about the module visit the GitHub repositoty (https://github.com/gee-community/ee-palettes)
+
+// Define a variable to access the ee-palettes module
+var palettes = require('users/gena/packages:palettes');
+
+// Define a variable to select the "colorbrewer.Spectral" palette from the ee-palettes 
+// module and reverse the order of the color ramp
+var palette = palettes.colorbrewer.Spectral[11].reverse();
+
+// Set the basemap to display as satellite
+Map.setOptions('SATELLITE');
+
+// Set the map center to a specific longitude/latuitude and zoom extent from 1 to 24 (1 = the entire planet; 24 = the smallest region possible)
+Map.setCenter(-83.27, 41.76, 8);
+
+// Define a variable to create a function to buffer (in meters) locations of in situ water quality samples collected 
+// from the GLObal Reflectance community dataset for Imaging and optical sensing of Aquatic environments (GLORIA)
+var buffered10 = GLORIA.map(function(f) {
+  return f.buffer(10); 
+});
+
+print (buffered10);
+
+// Create a function to mask clouds using the Sentinel-2 QA band
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+
+  // Bits 10 and 11 are clouds and cirrus, respectively.
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+
+  // Both flags should be set to zero, indicating clear conditions.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0)
+      .and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+
+  // return a cloud masked Sentinel-2 image
+  return image.updateMask(mask).divide(10000);
+}
+
+// Define a variable for the Harmonized Sentinel-2 MSI: Level-2A ImageCollection 
+var S2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+                  // Filter the ImageCollection by date range for collocation with in situ GLORIA data
+                  .filterDate('2019-07-13', '2019-07-15') 
+                  // Pre-filter collection to get less cloudy granules.
+                  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',20))
+                  // Map the cloud function created above to mask cloudy pixels
+                  .map(maskS2clouds)
+                  // Filter the boundary of the ImageCollection by the Erie polygon
+                  .filterBounds(Erie)
+                  // Reduce the ImageCollection to get the median in each pixel.
+                  .median();
+                  
+// Use a print statement to print the results to the Console tab
+print('Filtered image collection (July 14, 2019)', S2);
+
+// Define a variable for visualization parameters for Sentinel-2 imagery
+var visualization = {
+  min: 0.0,
+  max: 0.3,
+  bands: ['B4', 'B3', 'B2'],
+};
+
+// Define a variable for converting the buffered vector to raster, selecting Chlorophyll a (Chla)
+var Chla = buffered10.reduceToImage({
+    properties: ['Chla'],
+    reducer: ee.Reducer.first()
+});
+
+// Define a variable to calculate the log10 of the Chla image and rename 
+// the band from the default name "first" to "Chla_log10"
+var Chla_log10 = Chla.log10().select(['first']).rename(['Chla_log10']);
+
+// Use a print statement to view the result in the Console tab
+print ('Chla buffered vector to raster', Chla);
+
+// Use a print statement to print the results to the Console tab
+print ('log10 of buffered Chla', Chla_log10);
+
+// Define a variable for converting the buffered vector to raster, selecting Total Suspended Solids (TSS)
+var TSS_buff = buffered10.reduceToImage({
+    properties: ['TSS'],
+    reducer: ee.Reducer.first()
+});
+
+// Define a variable for renaming the 'first' band to 'TSS'
+var TSS = TSS_buff.select('first').rename(['TSS']);
+
+// Use a print statement to view the result in the Console tab
+print ('TSS buffered vector to raster', TSS);
+
+// Define a variable to output a histogram of Chlorophyll a (Chla) values within the buffered areas.
+var chart = ui.Chart.image.histogram({image: Chla, region: buffered10, scale: 10})
+        .setSeriesNames(['Chla'])
+        .setOptions({
+          title: 'Chlorophyll a (Chla) values within buffered areas',
+          hAxis: {
+            title: 'Chla (Mg/m3)',
+            titleTextStyle: {italic: false, bold: true},
+          },
+          vAxis:
+              {title: 'Count', titleTextStyle: {italic: false, bold: true}},
+          colors: ['cf513e', '1d6b99', 'f0af07']
+        });
+
+// Use  print statement to output the histogram values of Chla to the console tab.
+print('Histogram of Chlorophyll-a values (Mg/m3)', chart);
+
+
+//=====================================================================================================
+//             CALCULATE TOTAL SUSPENDED SOLIDS (TSS) & THE COLOR INDEX (CI)
+// 
+
+
+// TOTAL SUSPENDED SOLIDS (TSS)
+
+// TSS Sentinel-2 MSI band ratio: Rrs(NIR) / Rrs(red) for performing regression with in situ TSS from GLORIA
+var TSS_expression = S2.expression(
+    '(log10 (NIR)) / (log10 (red))', { // log10 NIR reflectace divided by log10 red reflectance 
+    'NIR': S2.select('B8'), // Select band 8 (NIR) from the S2 filtered image collection
+    'red': S2.select('B4')  // Select band 4 (red) from the S2 filtered image collection
+}).rename('TSS_br'); // Total Suspended Solids band ratio
+
+
+// COLOR INDEX (CI)
+
+// CI = Rrs(λgreen) − [Rrs(λblue) + (λgreen−λblue) / (λred−λblue) * (Rrs(λred) − Rrs(λblue))]
+// For more information refer to the algorithm description from NASA's OB.DAAC (https://oceancolor.gsfc.nasa.gov/resources/atbd/chlor_a/)
+var CI_expression = S2.expression(
+    'green - blue + (((559.8 - 492.7) / (664.6 - 492.7)) * (red - blue))', { // Algorithm for deriving CI
+    'blue': S2.select('B2'), // Select band 2 (blue) from the S2 filtered image collection 
+    'green': S2.select('B3'), // Select band 3 (green) from the S2 filtered image collection
+    'red': S2.select('B4') // Select band 4 (red) from the S2 filtered image collection
+}).rename('CI'); // rename the output band name "CI"
+
+// Use a print statement to print the results to the Console tab
+print ('Total Suspended Solids (TSS) calculated from Sentinel-2 MSI image', TSS_expression);
+
+// Use a print statement to print the results to the Console tab
+print ('Color Index (CI) calculated from Sentinel-2 MSI image', CI_expression);
+
+// Define a variable to clip CI by the Erie polygon
+var CI_Erie = CI_expression.clip(Erie);
+
+// Define a variable to clip TSS by the Erie polygon
+var TSS_Erie = TSS_expression.clip(Erie);
+
+// // Define a variable to clip band ratio (blue/green) by the Erie polygon
+// var bandRatio_Erie = bandRatio_expression.clip(Erie);
+
+// Calculate mean band values from CI_expression image within 10 meter buffered areas,
+// creating a feature collection as the result
+var CI_reducer = CI_expression.reduceRegions({
+  collection: buffered10.select(['Chla']), // Select Chla for regression analysis
+  reducer: ee.Reducer.mean(), // Use the mean reducer
+  scale: 10, // Resolution of the Sentinel-2 data
+  crs: 'EPSG:4326' // Select the coordinate reference system (crs)
+});
+
+// Use a print statement to print the results to the Console tab
+print ('Feature collection with mean CI and Chla by 10m buffer', CI_reducer);
+
+// Calculate mean band values from TSS_expression image within 10 meter buffered areas,
+// creating a feature collection as the result
+var TSS_reducer = TSS_expression.reduceRegions({
+  collection: buffered10.select(['TSS']), // Select TSS for regression analysis
+  reducer: ee.Reducer.mean(), // Use the mean reducer
+  scale: 10, // Resolution of the Sentinel-2 data
+  crs: 'EPSG:4326' // Select the coordinate reference system (crs)
+});
+
+// Use a print statement to print the results to the Console tab
+print ('Feature collection with mean TSS band ratio and in situ TSS by 10m buffer', TSS_reducer);
+
+// Make a list of properties. It's important the independent variable is first for regression analysis
+var properties = ['Chla', 'mean'];
+
+// Make a list of properties. It's important the independent variable is first for regression analysis
+var properties1 = ['TSS', 'mean'];
+
+// Use a print statement to print properties to the Console tab
+print('Properties', properties);
+
+// Use a print statement to print properties to the Console tab
+print('Properties1', properties1);
+
+// Create a function to iterate over the list of properties and create an image 
+// from the feature collection. Bands are now in a single image
+var image = ee.Image(properties.map(function(property) {
+  return CI_reducer.select([property])
+    .reduceToImage([property], ee.Reducer.first())
+    .rename([property]);
+}));
+
+// Use a print statement to print the results to the Console tab
+print('Image list (Chla & CI)', image);
+
+// Create a function to iterate over the list of properties and create an image 
+// from the feature collection. Bands are now in a single image
+var image1 = ee.Image(properties1.map(function(property) {
+  return TSS_reducer.select([property])
+    .reduceToImage([property], ee.Reducer.first())
+    .rename([property]);
+}));
+
+// Use a print statement to print the results to the Console tab
+print('Image list (TSS & band ratio)', image1);
+
+// Define a variable to output a histogram of log10 Chla values within the buffered areas.
+var chart1 = ui.Chart.image.histogram({image: Chla_log10, region: buffered10, scale: 10})
+        .setSeriesNames(['Chla'])
+        .setOptions({
+          title: 'log10 Chla values within buffered areas',
+          hAxis: {
+            title: 'Chla (Mg/m3)',
+            titleTextStyle: {italic: false, bold: true},
+          },
+          vAxis:
+              {title: 'Count', titleTextStyle: {italic: false, bold: true}},
+          colors: ['cf513e', '1d6b99', 'f0af07']
+        });
+
+// Use a print statement to output the histogram values of Chla to the console tab.
+print('log10 of Chlorophyll-a values (Mg/m3)', chart1);
+
+// Define a variable (CI) and select this band from an image (variable "image" defined above)
+var CI = image.select('mean').rename(['CI']);
+
+// Define a variable (TSS) and select this band from an image (variable "image1" defined above)
+var TSS_br = image1.select('mean').rename(['TSS_br']);
+
+// Use a print statement to print the results to the Console tab
+print('Select a band by name (CI)', CI);
+
+// Use a print statement to print the results to the Console tab
+print('Select a band by name (TSS)', TSS);
+
+// Define a variable to add the CI band to the log10 of Chla 
+var img = Chla_log10.addBands(CI);
+
+// Define a variable to add TSS_br (TSS band ratio [NIR/red]) to the TSS in situ image defined above 
+var img1 = TSS.addBands(TSS_br);
+
+// Use a print statement to print the results to the Console tab
+print ('Image with both "Chla_log10" and "CI" bands', img);
+
+// Use a print statement to print the results to the Console tab
+print ('Image with both "TSS" and "TSS_br" bands', img1);
+
+// Create a feature collection to export a .csv file
+var stats = img.reduceRegions({
+  collection: buffered10.select(['Latitude','Longitude']),
+  reducer: ee.Reducer.mean(),
+  scale: 10,  // meters
+});
+
+// Create a feature collection to export a .csv file
+var stats1 = img1.reduceRegions({
+  collection: buffered10.select(['Latitude','Longitude']),
+  reducer: ee.Reducer.mean(),
+  scale: 10,  // meters
+});
+
+// Use a print statement to print the results to the Console tab
+print ('Feature collection created from "Chla_log10" and "CI" bands', stats);
+
+// Use a print statement to print the results to the Console tab
+print ('Feature collection created from "TSS" and "TSS_br" bands', stats1);
+
+
+//=====================================================================================================
+//                       INTERPRETING AN IMAGE: REGRESSION 
+
+//                            LINEAR FIT
+
+// The simplest regression available in Earth Engine is implemented through 
+// the reducer linearFit. This function is a least-squares estimate of a linear 
+// function with one independent variable and one dependent variable.
+
+// Independent variable first, dependent variable second.
+var linearFit = img.reduceRegion({ // Define a variable to reduce the image of log10 in situ Chla and CI
+    reducer: ee.Reducer.linearFit(), // Choose linear fit as the regression type
+    geometry: buffered10, // Constrain the regression by the 10m buffered areas
+    scale: 10, // Scale in meters
+    bestEffort: true // Added to avoid error messages
+});
+
+// Inspect the results.
+print('OLS estimates (CI):', linearFit);
+print('y-intercept (CI):', linearFit.get('offset'));
+print('Slope (CI):', linearFit.get('scale'));
+
+
+// Independent variable first, dependent variable second.
+var linearFit_TSS = img1.reduceRegion({ // Define a variable to reduce the image of in situ TSS and TSS band ratio (NIR/red)
+    reducer: ee.Reducer.linearFit(), // Choose linear fit as the regression type
+    geometry: buffered10, // Constrain the regression by the 10m buffered areas
+    scale: 10, // Scale in meters
+    bestEffort: true // Added to avoid error messages
+});
+
+// Inspect the results.
+print('OLS estimates (TSS):', linearFit_TSS);
+print('y-intercept (TSS):', linearFit_TSS.get('offset'));
+print('Slope (TSS):', linearFit_TSS.get('scale'));
+
+
+
+//=====================================================================================================
+//                            ADD LAYERS TO THE MAP WINDOW
+
+// Add the Sentinel-2 image to the map pane using the visualization parameters defined previously in the script
+Map.addLayer(S2, visualization, 'July 14, 2019 (RGB)', true);
+
+// Add the buffered (10 meter) GLORIA in situ water quality samples to the map pane
+Map.addLayer(buffered10, {color: 'orange'}, 'buffer', true);
+
+// Add the GLORIA in situ water quality samples to the map pane
+Map.addLayer(GLORIA, {color: 'purple'},'July 14, 2019 (GLORIA)', true);
+
+// Add the TSS_Erie image to the map pane using the visualization parameters defined in the script
+Map.addLayer(TSS_Erie, {min: 0.1, max: 2.8, palette: palette},'Total Suspended Solids (TSS)', true);
+
+// Add the CI_Erie image to the map pane using the visualization parameters defined in the script
+Map.addLayer(CI_Erie, {min: 0.0, max: 0.09, palette: palette},'Color Index (CI)', true);
+
+//=====================================================================================================
+//                        EXPORT RESULTS IN COMMA SEPARATED VALUE (CSV) FORMAT
+
+// Uncomment the code below to export CSV file(s) to your Google Drive.
+
+// Export.table.toDrive({collection: stats, description: 'Chla_CI', fileFormat: 'CSV' });
+
+// Export.table.toDrive({collection: stats1, description: 'TSS_br', fileFormat: 'CSV' });
+
+
+//=====================================================================================================
+//                               EXPORT RESULTS IN GeoTIFF FORMAT
+
+// Uncomment the code below to export images to your Google Drive. Specify EPSG:4326 for the Coordinate Reference System (CRS)
+// Adapt the code below to export other layers to your Google Drive as appropriate
+
+/*
+Export.image.toDrive({
+  image: CI_Erie,
+  description: 'CI',
+  scale: 10,
+  region: Erie,
+  fileFormat: 'GeoTIFF',
+  crs: 'EPSG:4326',
+});
+*/
