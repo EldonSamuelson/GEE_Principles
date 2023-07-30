@@ -1,0 +1,83 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var Erie = 
+    /* color: #ffc82d */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-83.62404064058533, 42.34785589776866],
+          [-83.62404064058533, 41.31646466168586],
+          [-81.09718517183533, 41.31646466168586],
+          [-81.09718517183533, 42.34785589776866]]], null, false);
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+
+
+// See the rectangular polygon covering western portion of Lake Erie, where GLORIA in-situ meaurements are available
+// This script is to select Landsat-8 images for the the area of our interest defined above
+//
+// Through the GEE catalog we have selected Level-2 Landsat-8 data
+// These data are AtmosphericallyCorrected  Surface Reflectance (SR)
+// These images also have surface temperature, but we will be focusinhg on SR for 
+// various bands.
+// Access image collection for a date range
+//
+var dataset = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+    .filterDate('2020-07-01', '2020-10-31');
+//
+// Landsat-8 data have to be scaled
+// This function applies scaling factors
+//
+function applyScaleFactors(image) {
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
+  var thermalBands = image.select('ST_B.*').multiply(0.00341802).add(149.0);
+  return image.addBands(opticalBands, null, true)
+              .addBands(thermalBands, null, true);
+}
+// 
+// Apply the scale factor to each image in the collection 
+//clip the images to the region of interest ('Erie' in this case)
+//
+dataset = dataset.map(applyScaleFactors).filterBounds(Erie);
+print(dataset);     // list of images will be printed on the Console --------->
+//
+// This function is to identify cirrus and other cloud mask for the images
+//
+function maskclouds(image) {
+  var qa = image.select('QA_PIXEL');
+
+  // Bits 3 and 2 are clouds and cirrus, respectively
+  var cloudBitMask = 1 << 3;
+  var cirrusBitMask = 1 << 2;
+  //
+// Both flags should be set to zero, indicating clear conditions
+//
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0)
+      .and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+
+  return image.updateMask(mask);
+}
+//
+// Now apply the cloud mask to the images.
+// newdata variable holds the cloud-free images
+//
+var newdata =  dataset.map(maskclouds);
+print(newdata);
+//
+// Plot RGB images (mean of all images)
+// B4, B3, and B2 are red, green, blue band SR
+//
+var visualization = {
+  bands: ['SR_B4', 'SR_B3', 'SR_B2'],
+  min: 0.0,
+  max: 0.3,
+};
+
+ Map.setCenter(-81.0, 41.5, 8); // focus on this region
+//
+//Plot both original and cloud-free suraface reflectance images
+//
+Map.addLayer(dataset.mean(), visualization, 'RGB_1');
+Map.addLayer(newdata.mean(), visualization, 'RGB_2');
+//
