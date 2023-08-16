@@ -1,6 +1,6 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var geometry = 
-    /* color: #0b4a8b */
+    /* color: #98ff00 */
     /* shown: false */
     /* displayProperties: [
       {
@@ -8,20 +8,34 @@ var geometry =
       }
     ] */
     ee.Geometry.Polygon(
-        [[[-10.77737642348532, 52.44724493560615],
-          [-10.77737642348532, 51.833679611351464],
-          [-3.982332478172821, 51.833679611351464],
-          [-3.982332478172821, 52.44724493560615]]], null, false);
+        [[[-1.1895285172526782, 50.884675459556235],
+          [-1.1895285172526782, 50.753450161324395],
+          [-0.8513556046550219, 50.753450161324395],
+          [-0.8513556046550219, 50.884675459556235]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-.filterBounds(geometry)
-.filterDate('2015-01-01','2023-05-01')
-.filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
-;
+              .filterBounds(geometry)
+              .filterDate('2015-01-01','2024-01-01')
+              .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
+              ;
 
-var Clip_Img = Imagery.map(function(img){
-return img.clip(geometry).divide(10000).copyProperties(img, ["system:time_start"]);
-});
+var Dataset = ee.ImageCollection('COPERNICUS/S3/OLCI')
+                  .filterBounds(geometry)
+                  .filterDate('2015-01-01','2024-01-01')
+                  ;
+
+// Select bands for visualization and apply band-specific scale factors.
+var rgbS3 = Dataset.select(['Oa08_radiance', 'Oa06_radiance', 'Oa04_radiance'])
+              .median()
+              // Convert to radiance units.
+              .multiply(ee.Image([0.00876539, 0.0123538, 0.0115198]));
+              
+var RGBVisS3 = {
+  bands: ['Oa08_radiance', 'Oa06_radiance', 'Oa04_radiance'],
+  gamma: 2,
+  min: 0,
+  max: 6,
+};
 
 var RGBVis = {
   min: 0,
@@ -35,21 +49,61 @@ var NIRVis = {
   bands: ['B8', 'B3', 'B2'],
 };
 
+var Clip_Img = Imagery.map(function(img){
+return img.clip(geometry).divide(10000).copyProperties(img, ["system:time_start"]);
+});
+
 var VidColl = Clip_Img
   .map(function(image) {
     return image.visualize(RGBVis);
   });
+  
+// Property Extraction 
+      var SystemIndex = Imagery.map(function (image) {
+        return image.set('SysIndex', image.toDictionary(['system:index']));
+      });
+      var list = SystemIndex.aggregate_array('SysIndex');
+      var list_1st = list.get(0);
+      var S2_HR_MGRS_Mosaic = Imagery.mosaic().set(list_1st);
+      var index = S2_HR_MGRS_Mosaic.get('system:index');
+      var index = index.getInfo().slice(31,37);  
 
-Map.addLayer(VidColl);
+Map.addLayer(VidColl,null,'S2');
   
 Export.video.toDrive({
-    folder: 'ee_Test',
+    folder: 'GEE_Timelapses',
     collection: VidColl,
-    description: "myvideo" ,
+    description: "GeometryTile"+ index +"_Export",
     maxFrames: 216000,
     dimensions: 1080,
     //scale: 100,
     maxPixels: 1e13,
-    framesPerSecond: 24,
+    framesPerSecond: 2,
     region: geometry
 });
+/*
+var Clip_S3 = rgbS3.map(function(img){
+  return img.clip(geometry).copyProperties(img,["system:time_start"]);
+});
+
+var VidCollS3 = Clip_S3
+  .map(function(image) {
+    return image.visualize(RGBVisS3);
+  });
+
+Map.addLayer(VidCollS3,null,'S3');
+print(VidCollS3)
+
+Export.video.toDrive({
+    folder: 'GEE_Timelapses',
+    collection: VidCollS3,
+    description: "GeometryTile_S3Export",
+    maxFrames: 216000,
+    dimensions: 1080,
+    //scale: 100,
+    maxPixels: 1e13,
+    framesPerSecond: 2,
+    region: geometry
+});
+
+*/
