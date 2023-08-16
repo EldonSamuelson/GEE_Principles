@@ -1,6 +1,6 @@
 // Date Range
 var START = ee.Date('2015-01-01');
-var END = ee.Date('2023-05-15');
+var END = ee.Date('2024-01-01');
 //Visualisations
 var RGBVis = {
   min: 0,
