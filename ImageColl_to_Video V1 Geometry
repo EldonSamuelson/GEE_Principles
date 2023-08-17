@@ -79,7 +79,7 @@ Export.video.toDrive({
     collection: VidColl,
     description: "GeometryTile"+ index +"_Export",
     maxFrames: 216000,
-    dimensions: 1920,
+    dimensions: 1080,
     //scale: 100,
     maxPixels: 1e13,
     framesPerSecond: 2,
