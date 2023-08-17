@@ -12,6 +12,8 @@ var geometry =
           [-0.8513556046550219, 50.759314359332464],
           [-0.8513556046550219, 50.884675459556235]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
+Map.centerObject(geometry);
+
 var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
               .filterBounds(geometry)
               .filterDate('2015-01-01','2024-01-01')
