@@ -68,13 +68,16 @@ var VidColl = Clip_Img
       var index = index.getInfo().slice(31,37);  
 
 Map.addLayer(VidColl,null,'S2');
+print("Eligible Frame Count: ");
+print(list);
+print("Divide by Frames per Second to get general estimate of low long the video will be");
   
 Export.video.toDrive({
     folder: 'GEE_Timelapses',
     collection: VidColl,
     description: "GeometryTile"+ index +"_Export",
     maxFrames: 216000,
-    dimensions: 1080,
+    dimensions: 1920,
     //scale: 100,
     maxPixels: 1e13,
     framesPerSecond: 2,
