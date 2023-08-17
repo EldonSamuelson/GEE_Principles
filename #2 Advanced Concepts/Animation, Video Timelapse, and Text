@@ -1,5 +1,5 @@
-//Source: https://gis.stackexchange.com/questions/366055/how-to-add-a-timeline-tool-to-time-lapse-in-gee?noredirect=1&lq=1
-
+// Source: https://gis.stackexchange.com/questions/366055/how-to-add-a-timeline-tool-to-time-lapse-in-gee?noredirect=1&lq=1
+// Also: https://gis.stackexchange.com/questions/326899/google-earth-engine-add-text-label-at-lat-lon-location
 // Define an area of interest geometry with a global non-polar extent.
 var aoi = ee.Geometry.Polygon(
   [[[-179.0, 78.0], [-179.0, -58.0], [179.0, -58.0], [179.0, 78.0]]], null,
