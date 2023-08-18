@@ -14,6 +14,14 @@ var tempCol = ee.ImageCollection('NOAA/GFS0P25')
   .limit(24)
   .select('temperature_2m_above_ground');
 
+Map.addLayer(tempCol,{ //convert each frame to RGB image explicitly since it is a 1 band image
+      forceRgbOutput: true,
+      min: -40,
+      max: 35,
+      palette: ['blue', 'purple', 'cyan', 'green', 'yellow', 'red']
+    });
+Map.centerObject(tempCol,2);
+
 // Define arguments for animation function parameters.
 var videoArgs = {
   dimensions: 768,
