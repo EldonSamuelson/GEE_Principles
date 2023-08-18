@@ -1,5 +1,5 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var geometry = 
+var geom = 
     /* color: #98ff00 */
     /* displayProperties: [
       {
@@ -7,21 +7,22 @@ var geometry =
       }
     ] */
     ee.Geometry.Polygon(
-        [[[-1.1895285172526782, 50.884675459556235],
-          [-1.1895285172526782, 50.760183066917456],
-          [-0.8568487687175219, 50.760183066917456],
-          [-0.8568487687175219, 50.884675459556235]]], null, false);
+        [[[-1.0515127701823657, 50.85737629283667],
+          [-1.0515127701823657, 50.75909717991664],
+          [-0.8568487687175219, 50.75909717991664],
+          [-0.8568487687175219, 50.85737629283667]]], null, false),
+    Point = /* color: #d63000 */ee.Geometry.Point([-1.0496303711783939, 50.76332723452613]);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-Map.centerObject(geometry);
+Map.centerObject(geom);
 
 var Imagery = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-              .filterBounds(geometry)
+              .filterBounds(geom)
               .filterDate('2015-01-01','2024-01-01')
-              .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 20))
+              .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 15))
               ;
 
 var Dataset = ee.ImageCollection('COPERNICUS/S3/OLCI')
-                  .filterBounds(geometry)
+                  .filterBounds(geom)
                   .filterDate('2015-01-01','2024-01-01')
                   ;
 
@@ -51,7 +52,7 @@ var NIRVis = {
 };
 
 var Clip_Img = Imagery.map(function(img){
-return img.clip(geometry).divide(10000).copyProperties(img, ["system:time_start"]);
+return img.clip(geom).divide(10000).copyProperties(img, ["system:time_start"]);
 });
 
 var VidColl = Clip_Img
@@ -67,7 +68,8 @@ var VidColl = Clip_Img
       var list_1st = list.get(0);
       var S2_HR_MGRS_Mosaic = Imagery.mosaic().set(list_1st);
       var index = S2_HR_MGRS_Mosaic.get('system:index');
-      var index = index.getInfo().slice(31,37);  
+      var indexTile = index.getInfo().slice(31,37);
+      var indexDate = index.getInfo().slice(0,9);
 
 Map.addLayer(VidColl,null,'S2');
 print("Eligible Frame Count: ");
@@ -77,14 +79,41 @@ print("Divide by Frames per Second to get general estimate of low long the video
 Export.video.toDrive({
     folder: 'GEE_Timelapses',
     collection: VidColl,
-    description: "GeometryTile"+ index +"_Export",
+    description: "GeometryTile"+ indexTile +"_Export",
     maxFrames: 216000,
     dimensions: 1080,
     //scale: 100,
     maxPixels: 1e13,
     framesPerSecond: 2,
-    region: geometry
+    region: geom
 });
+
+// Animation Previwing
+
+var text = require('users/gena/packages:text'); // Import gena's package which allows text overlay on image
+
+// Define arguments for animation function parameters.
+var videoArgs = {
+  dimensions: 768,
+  region: geom,
+  framesPerSecond: 2,
+  crs: 'EPSG:3857',
+};
+
+var annotations = [
+  {position: 'right', offset: '1%', margin: '1%', property: 'label', scale: 200} //large scale because image if of the whole world. Use smaller scale otherwise
+  ]
+  
+function addText(image){
+  var timeStamp = ee.String(indexDate);
+  var image = image.set({'label':timeStamp}); // set a property called label for each image
+  var annotated = text.annotateImage(image, {}, Point, annotations); // create a new image with the label overlayed using gena's package
+  return annotated; 
+}
+
+var VidCollAnim = VidColl/*.map(addText)*/; //add time stamp to all images
+
+print(ui.Thumbnail(VidCollAnim, videoArgs));
 /*
 var Clip_S3 = rgbS3.map(function(img){
   return img.clip(geometry).copyProperties(img,["system:time_start"]);
