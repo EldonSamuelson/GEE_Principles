@@ -11,7 +11,7 @@ var geometry = /* color: #d63000 */ee.Geometry.Point([19.663621145272657, -42.36
 // to the first 24 hours.
 var tempCol = ee.ImageCollection('NOAA/GFS0P25')
   .filterDate('2018-12-22', '2018-12-23')
-  .limit(24)
+  .limit(49)
   .select('temperature_2m_above_ground');
 
 Map.addLayer(tempCol,{ //convert each frame to RGB image explicitly since it is a 1 band image
