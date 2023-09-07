@@ -9,7 +9,7 @@ var START_DATE = ee.Date('2022-04-25');
 var END_DATE = ee.Date('2022-04-27');
 var MAX_CLOUD_PROBABILITY = 20;
 var region = ThamesWS;
-//Map.centerObject(region);
+Map.centerObject(ThamesWS);
 
 function maskClouds(img) {
   var clouds = ee.Image(img.get('cloud_mask')).select('probability');
