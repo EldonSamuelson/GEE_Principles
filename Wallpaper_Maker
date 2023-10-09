@@ -1,17 +1,13 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var geometry = 
+var Screen1080x1920 = 
     /* color: #ffc82d */
     /* shown: false */
-    /* displayProperties: [
-      {
-        "type": "rectangle"
-      }
-    ] */
+    /* locked: true */
     ee.Geometry.Polygon(
-        [[[-9.955531829921771, 52.34211609834481],
-          [-9.955531829921771, 52.23732622311227],
-          [-9.644138092128802, 52.23732622311227],
-          [-9.644138092128802, 52.34211609834481]]], null, false);
+        [[[-6.563503021328021, 54.67786216845663],
+          [-6.563503021328021, 54.57868983542413],
+          [-6.252109283535052, 54.57868983542413],
+          [-6.252109283535052, 54.67786216845663]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
@@ -36,9 +32,9 @@ var MAX_CLOUD_PROB = 18;
 // ## START/END DATE ## 
 //    Format: 'YYYY-MM-DD', include the quotes. This for the time series range.
 var START_DATE = '2018-01-01';
-var END_DATE = '2022-07-01';
+var END_DATE = '2024-01-01';
 // ## BOUNDS ## 
-var BOUNDS = geometry;
+var BOUNDS = Screen1080x1920;
 //    Format: Either be a drawn geometry shape within GEE, or an imported SHP file
 //    See: https://developers.google.com/earth-engine/guides/table_upload#upload-a-shapefile
 
@@ -46,8 +42,8 @@ var BOUNDS = geometry;
 //    Based on GEE's 1-24 level system. Larger number = More Zoom
 var ZOOM = 11;
 // ## PREVIEW DATES ## 
-var FRST_PRVW_DATE = '2021-07-16';
-var LAST_PRVW_DATE = '2021-07-18';
+var FRST_PRVW_DATE = '2023-06-04';
+var LAST_PRVW_DATE = '2023-06-06';
 /*    For displaying a particular date on the map, as otherwise the Layers don't match
 *     To display a particular image on a particular time, select the day before and after it
 *     i.e. "2022-03-31" requires the filter to be set between 03-30 and 04-01
@@ -193,8 +189,8 @@ print('Time, Date, Bounding, Clipping, and Cloud Tile Filtering parameters set f
 // Map Collections to View
 print(S2_L2A);
 print(S2CloudMasked);
-Map.addLayer(S2CloudMasked, RGBVis,'L2A ClearSkies');
-Map.addLayer(S2CloudMasked, NIRVis,'L2A Aerochrome');
+Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), RGBVis,'L2A ClearSkies');
+Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NIRVis,'L2A Aerochrome');
 
 // ###############
 // ### BUTTONS ###
@@ -241,7 +237,7 @@ var index = index.getInfo().slice(0,13);
 //    # EXPORTS #   
 Export.image.toDrive({
     image: S2_L2A_Mosaic.visualize(NIRVis), // Sets the image to keep the current Visualisation parameters
-    region: geometry, // The area of interest
+    region: Screen1080x1920, // The area of interest
     description: 'LOCATION_' + index, // Sets the name of the image(s) with the date
     folder: 'GEE_Wallpapers', // The destination folder for the imagery in your Account's Google Drive
     scale: '20', // scale in m/px. 'Nominal' returns requested image AT TRUE SCALE
