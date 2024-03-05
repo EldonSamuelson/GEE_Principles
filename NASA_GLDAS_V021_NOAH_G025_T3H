@@ -1,0 +1,12 @@
+var dataset = ee.ImageCollection('NASA/GLDAS/V021/NOAH/G025/T3H')
+                  .filter(ee.Filter.date('2024-02-01', '2024-02-29'));
+var TwoMTempK = dataset.select('Tair_f_inst');
+var TwomTempKVis = {
+  min: 206.8,
+  max: 327.6,
+  palette: ['1303ff', '42fff6', 'f3ff40', 'ff5d0f'],
+};
+Map.setCenter(0,55,6);
+Map.addLayer(
+    TwoMTempK, TwomTempKVis,
+    'Instantaneous 2m Air Temperature [K]');
