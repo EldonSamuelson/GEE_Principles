@@ -6,23 +6,14 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     KennetWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_KLE_WS_Dissolved");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.1
-// Source: kel Markert (GEE)
+// Source: Kel Markert (GEE)
 // Modified by Séamus O'D 07/03/2024
 
 // load in basin collection
 // can use features from GEE or imported assests
-var basins = ee.FeatureCollection("WWF/HydroSHEDS/v1/Basins/hybas_7");
 var Thames = ThamesWS;
 var Colne = ColneWS;
 var Kennet = KennetWS;
-
-// select the Thames River basin
-var thamesCatchments = basins.filter('MAIN_BAS == 2070053790');
-// only get one sub-catchment for testing with one feature
-var singleCatchment = ee.Feature(thamesCatchments.first());
-
-Map.addLayer(thamesCatchments, {}, "Thames Catchments");
-Map.addLayer(singleCatchment, {}, "Single catchment", false);
 
 // set the scale to run the reduction
 // this is set at the imerg scale
@@ -107,10 +98,7 @@ timeSeries = ee.FeatureCollection(timeSeries).flatten().map(function(feature){
 });
 
 
-// run the export to BigQuery for all catchments!
-// can also export to Drive, CloudStorage, etc.
-// This is the 'Dormant/Batch-Export' side of GEE
-// Batch Export Tasks can run up to 7 days, and are limited only by storage capacity or the BigQuery costs
+// run the export to GDrive for all catchments!
 Export.table.toDrive({
   collection: timeSeries,
   selectors: ['GR_ID','C_ID','date', 'precipitationCal','temperature_2m'],
@@ -119,6 +107,9 @@ Export.table.toDrive({
 });
 
 // BiqQuery example, for exporting into Google Cloud.
+// can also export to Drive, CloudStorage, etc.
+// This is the 'Dormant/Batch-Export' side of GEE
+// Batch Export Tasks can run up to 7 days, and are limited only by storage capacity or the BigQuery costs
 /*
 Export.table.toBigQuery({
   collection: timeSeries, 
