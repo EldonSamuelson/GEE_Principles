@@ -1,6 +1,7 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     imerg = ee.ImageCollection("NASA/GPM_L3/IMERG_V06"),
+    gldas = ee.ImageCollection("NASA/GLDAS/V021/NOAH/G025/T3H"),
     ThamesWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Thames_WS_Dissolved"),
     ColneWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Colne_WS_Dissolved"),
     KennetWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_KLE_WS_Dissolved");
@@ -10,7 +11,8 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 // Modified by Séamus O'D 07/03/2024
 
 // load in basin collection
-// can use features from GEE or imported assests
+// can use features from GEE or imported assets
+
 var Thames = ThamesWS;
 var Colne = ColneWS;
 var Kennet = KennetWS;
@@ -43,23 +45,31 @@ function dateMetReduction(i){
   var t2 = t1.advance(1, "day");
   
   // get the ERA5 temp in C for the day
-  var temp = era5
+  var ERAtemp = era5
     .filterDate(t1,t2)
-    .select('temperature_2m')
+    .select(['temperature_2m'],['ERA5L_temp2m'])
+    .mean()
+    .subtract(273.15);
+    
+  // get GLDAS temp in C for the day
+  var GLDAStemp = gldas
+    .filterDate(t1,t2)
+    .select(['Tair_f_inst'],['GLDAS_airT'])
     .mean()
     .subtract(273.15);
     
   // get the accumulated precip for a day from IMERG
-  var precip = imerg
+  var IMERGprecip = imerg
     .filterDate(t1,t2)
-    .select('precipitationCal')
+    .select(['precipitationCal'],['IMERG_precipCal'])
     .sum();
   
   // combine the meterological data into one image
   // add additional met/image variables as needed
   var forcingImg = ee.Image.cat([
-    temp,
-    precip
+    ERAtemp,
+    GLDAStemp,
+    IMERGprecip
   ]);
   
   // // calculate the basin average for a single feature
@@ -101,7 +111,7 @@ timeSeries = ee.FeatureCollection(timeSeries).flatten().map(function(feature){
 // run the export to GDrive for all catchments!
 Export.table.toDrive({
   collection: timeSeries,
-  selectors: ['GR_ID','C_ID','date', 'precipitationCal','temperature_2m'],
+  selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal','ERA5L_temp2m', 'GLDAS_airT'],
   description: "TS_exportToDrive",
   fileFormat: 'CSV'
 });
@@ -120,3 +130,8 @@ Export.table.toBigQuery({
 // This is just to show that it will timeout after 5 minutes/5000 elements
 // This is the 'Active/On-Demand' side of GEE.
 //print(timeSeries);
+
+Map.centerObject(Thames, 8);
+Map.addLayer(Thames.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Thames');
+Map.addLayer(Colne.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Colne');
+Map.addLayer(Kennet.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Kennet');
