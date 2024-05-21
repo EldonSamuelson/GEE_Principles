@@ -100,6 +100,8 @@ function dateMetReduction(i){
 // apply the function to calculate basin averages for each date from start to end
 var timeSeries = ee.List.sequence(0, dateDiff).map(dateMetReduction);
 
+print('List of result with columns',timeSeries);
+
 // convert the output to a feature collection and flatten
 // FeatureCollection exports need a geometry so get the 
 // centroid of the geometries to reduce geometry complexity
@@ -129,7 +131,7 @@ Export.table.toBigQuery({
 */
 // This is just to show that it will timeout after 5 minutes/5000 elements
 // This is the 'Active/On-Demand' side of GEE.
-//print(timeSeries);
+print('Timeseries Fails', timeSeries);
 
 Map.centerObject(Thames, 8);
 Map.addLayer(Thames.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Thames');
