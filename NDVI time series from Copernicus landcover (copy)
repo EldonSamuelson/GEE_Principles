@@ -1,0 +1,264 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var swarms = ee.FeatureCollection("users/SeamusWOD/Shapefiles/Points/INCA/INCA_Thames_Reachpoints"),
+    geometry = ee.FeatureCollection("users/SeamusWOD/Shapefiles/Polygons/Thames_River_Basin");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+// Modified from users/wawerujohn/Project__Work/NDVI timerseries from Copernicus landcover
+// (Replaced point file and geometry with local AOI)
+
+//Add the Global Copernicus 100m data product and Extract the landcover band
+var landcover = ee.Image("COPERNICUS/Landcover/100m/Proba-V-C3/Global/2019")
+.select('discrete_classification');
+
+// Clip the image to the polygon geometry
+var landcover_roi = landcover.clip(geometry);
+    
+// Add a map layer of the landcover clipped to the polygon.
+Map.addLayer(landcover_roi, {}, "Samburu Landcover");
+    
+// Print out the frequency of landcover occurrence for the polygon.
+var frequency = landcover.reduceRegion({
+  reducer:ee.Reducer.frequencyHistogram(),
+  geometry:geometry,
+  scale:1000
+});
+
+// // Select the classes you are interested in analyzing
+// //Shrub land cover
+// //var LCclass20 = landcover_roi.eq(20);
+
+// // Select 'landcover' band with pixel values 20 
+// // which represent shrub
+// var shrub = landcover.select('shrub-coverfraction').eq(20)
+
+// // shrub landcover contains 1 and 0 pixels. We want to generate points
+// // only in the pixels that are 1 (representing shrub)
+// // selfMask() masks the pixels with 0 value.
+// var shrubmask = shrub.selfMask()
+
+// Map.addLayer(shrubmask, {}, "Shrub");
+
+// We need a unique id for each point. We take the feature id and set it as
+// a property so we can refer to each point easily
+var points = swarms.map(function(feature) {
+  return ee.Feature(feature.geometry(), {'id': feature.id()})
+})
+
+print(points)
+
+// Show the laikipia aoi with a blue outline
+var outline = ee.Image().byte().paint({
+  featureCollection: geometry, 
+  color: 1,
+  width: 3
+});
+
+//Add and center the outline
+Map.addLayer(outline, {palette: ['blue']}, 'AOI')
+Map.centerObject(geometry, 9);
+
+// Show the swarm locations in red
+Map.addLayer(points, {color: 'red'}, 'swarm Locations 2020')
+
+// Function to remove cloud and snow pixels
+function maskCloudAndShadows(image) {
+  var cloudProb = image.select('MSK_CLDPRB');
+  var snowProb = image.select('MSK_SNWPRB');
+  var cloud = cloudProb.lt(30);
+  var snow = snowProb.lt(5);
+  var scl = image.select('SCL'); 
+  var shadow = scl.eq(3); // 3 = cloud shadow
+  var cirrus = scl.eq(5); // 10 = cirrus
+  // Cloud probability less than 5% or cloud shadow classification
+  var mask = (cloud.and(snow)).and(cirrus.neq(1)).and(shadow.neq(1));
+  return image.updateMask(mask);
+}
+
+// Adding a NDVI band
+function addNDVI(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('ndvi')
+  return image.addBands([ndvi])
+}
+
+var startDate = '2019-01-01'
+var endDate = '2021-05-31'
+
+// Use Sentinel-2 L2A data - which has better cloud masking
+var collection = ee.ImageCollection('COPERNICUS/S2_SR')
+    .filterDate(startDate, endDate)
+    .map(maskCloudAndShadows)
+    .map(addNDVI)
+    .filter(ee.Filter.bounds(points))
+    
+    
+// View the median composite
+var vizParams = {bands: ['B4', 'B3', 'B2'], min: 0, max: 2000}
+Map.addLayer(collection.median(), vizParams, 'collection')
+
+//print(collection)
+
+var testPoint = ee.Feature(points.first())
+print(testPoint)
+
+//Map.centerObject(first testPoint)
+var chart = ui.Chart.image.series({
+    imageCollection: collection.select('ndvi'),
+    region: testPoint.geometry()
+    }).setOptions({
+      interpolateNulls: true,
+      lineWidth: 1,
+      pointSize: 3,
+      title: 'cropland NDVI over Time at swarm date 30 Jan 2020 using Sentinel-2 L2A data',
+      vAxis: {title: 'NDVI'},
+      hAxis: {title: 'Date', format: 'YYYY-MMM', gridlines: {count: 12}}
+    })
+print(chart)
+
+// We can also Export the time series as a CSV over a point or a polygon
+// We can use the reduceRegion() function to get the NDVI value from an image
+// Since we want to do that for all images, we need to map() a function
+
+var filteredCollection = collection.select('ndvi')
+  .filter(ee.Filter.bounds(testPoint.geometry()))
+var timeSeries = ee.FeatureCollection(filteredCollection.map(function(image) {
+  var stats = image.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: testPoint.geometry(),
+    scale: 10,
+    maxPixels: 1e10
+  })
+  // reduceRegion doesn't return any output if the image doesn't intersect
+  // with the point or if the image is masked out due to cloud
+  // If there was no ndvi value found, we set the ndvi to a NoData value -9999
+  var ndvi = ee.List([stats.get('ndvi'), -9999])
+    .reduce(ee.Reducer.firstNonNull())
+
+  // Create a feature with null geometry and NDVI value and date as properties
+  var f = ee.Feature(null, {'ndvi': ndvi,
+    'date': ee.Date(image.get('system:time_start')).format('YYYY-MM-dd')})
+  return f
+}))
+
+// Check the results
+print(timeSeries.first())
+
+// Export to CSV
+Export.table.toDrive({
+    collection: timeSeries,
+    description: 'Single_Location_NDVI_time_series',
+    folder: 'earthengine',
+    fileNamePrefix: 'ndvi_time_series_single',
+    fileFormat: 'CSV'
+})
+
+// We can chart a single value for all points
+// Here we take the maximum NDVI and show how it compares
+// across all points
+var testImage = collection.select('ndvi').max()
+var stats = testImage.reduceRegions({
+  collection: points,
+  reducer: ee.Reducer.mean().setOutputs(['ndvi']),
+  scale: 10
+  })
+
+
+var chart = ui.Chart.feature.byFeature({
+  features: stats,
+  yProperties: ['ndvi']}) 
+  .setChartType('ColumnChart')
+  .setOptions({
+      interpolateNulls: false,
+      lineWidth: 1,
+      pointSize: 3,
+      title: 'Maximum NDVI for Year 2019',
+      vAxis: {title: 'NDVI'},
+      hAxis: {title: 'Feature ID'}
+
+    })
+print(chart);
+
+
+var chart = ui.Chart.image.seriesByRegion({
+    imageCollection: collection.select('ndvi'),
+    regions: points,
+    reducer: ee.Reducer.mean()
+})
+// This doesn't work as the result is to large to print
+print(chart)
+
+var triplets = collection.map(function(image) {
+  return image.select('ndvi').reduceRegions({
+    collection: points, 
+    reducer: ee.Reducer.first().setOutputs(['ndvi']), 
+    scale: 10,
+  })
+  
+// reduceRegion doesn't return any output if the image doesn't intersect
+// with the point or if the image is masked out due to cloud
+// If there was no ndvi value found, we set the ndvi to a NoData value -9999
+    .map(function(feature) {
+    var ndvi = ee.List([feature.get('ndvi'), -9999])
+      .reduce(ee.Reducer.firstNonNull())
+    return feature.set({'ndvi': ndvi, 'imageID': image.id()})
+    })
+  }).flatten();
+
+var format = function(table, rowId, colId) {
+  var rows = table.distinct(rowId); 
+  var joined = ee.Join.saveAll('matches').apply({
+    primary: rows, 
+    secondary: table, 
+    condition: ee.Filter.equals({
+      leftField: rowId, 
+      rightField: rowId
+    })
+  });
+        
+  return joined.map(function(row) {
+      var values = ee.List(row.get('matches'))
+        .map(function(feature) {
+          feature = ee.Feature(feature);
+          return [feature.get(colId), feature.get('ndvi')];
+        });
+      return row.select([rowId]).set(ee.Dictionary(values.flatten()));
+    });
+};
+
+var sentinelResults = format(triplets, 'id', 'imageID');
+
+// There are multiple image granules for the same date processed from the same orbit
+// Granules overlap with each other and since they are processed independently
+// the pixel values can differ slightly. So the same pixel can have different NDVI 
+// values for the same date from overlapping granules.
+// So to simplify the output, we can merge observations for each day
+// And take the max ndvi value from overlapping observations
+var merge = function(table, rowId) {
+  return table.map(function(feature) {
+    var id = feature.get(rowId)
+    var allKeys = feature.toDictionary().keys().remove(rowId)
+    var substrKeys = ee.List(allKeys.map(function(val) { 
+        return ee.String(val).slice(0,8)}
+        ))
+    var uniqueKeys = substrKeys.distinct()
+    var pairs = uniqueKeys.map(function(key) {
+      var matches = feature.toDictionary().select(allKeys.filter(ee.Filter.stringContains('item', key))).values()
+      var val = matches.reduce(ee.Reducer.max())
+      return [key, val]
+    })
+    return feature.select([rowId]).set(ee.Dictionary(pairs.flatten()))
+  })
+}
+var sentinelMerged = merge(sentinelResults, 'id');
+
+Export.table.toDrive({
+    collection: sentinelMerged,
+    description: 'Multiple_Locations_NDVI_time_series',
+    folder: 'earthengine',
+    fileNamePrefix: 'ndvi_time_series_multiple',
+    fileFormat: 'CSV'
+})
+  
+  
+  
+  
+  
+  
