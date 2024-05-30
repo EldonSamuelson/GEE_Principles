@@ -36,7 +36,7 @@ var points = /* color: #ffc82d */ee.Geometry.MultiPoint(
 // Params
 var S2_MIN_CLOUD = 80;
 var START = ee.Date('2020-01-01');
-var END = ee.Date('2020-01-31');
+var END = ee.Date('2020-12-31');
 var BOUNDS = geometry;
 var POINTS = points;
 var ZOOM = 9;
@@ -149,7 +149,7 @@ Map.addLayer(BOUNDS, {color: 'black'}, 'Bounds');
     // Bounded
 Map.addLayer(WCmosaic, {min:0, max:10, palette:WCdictPalette['.colours']}, 'ESA WorldCover 2021', false);
     // Water Masked
-Map.addLayer(ESAWCMaskWater, {"opacity":1,"bands":["remapped"],"palette":["#0095ff"]}, 'ESA Worldcover 2021 Water Mask', false);
+Map.addLayer(ESAWCMaskWater, {"opacity":1,"bands":["remapped"],"palette":["#0095ff"]}, 'ESA Worldcover 2021 Water Mask');
   // Points 
 Map.addLayer(POINTS,{color:'red', pointsize:2}, 'Points');
 
@@ -184,22 +184,22 @@ print('S2_L2A_Coll Output Test', S2Joined3.limit(100));
 
 
 // TO TEST
-// Empty Collection to fill
+// Empty Collection to fill (With removal of null values)
 var ft = ee.FeatureCollection(ee.List([]));
-//With removal of null values ------------------------------------------
+
 //Function to extract values from image collection based on point file and export as a table 
 var fill = function(img, ini) {
 // type cast
 var inift = ee.FeatureCollection(ini);
 
-// gets the values for the points in the current img, average the data by a 30m buffer around each point
-var ft2 = img.reduceRegions(points, ee.Reducer.mean(),30);
+// gets the values for the points in the current img, scale set for Sentinel 2.
+var ft2 = img.reduceRegions(points, ee.Reducer.first(),10);
 
 // gets the date of the img
-var date = img.date().format();
+var date = img.date().format('YYYY-MM-dd');
 
 // writes the date in each feature
-var ft3 = ft2.map(function(f){return f.set("date", date)});
+var ft3 = ft2.map(function(f){return f.set("Date_ISO8601", date)});
 
 // merges the FeatureCollections
 var ft3a = ft3.filter(ee.Filter.neq('S2_L2A_B3B1', null));//filter first result to remove null values
