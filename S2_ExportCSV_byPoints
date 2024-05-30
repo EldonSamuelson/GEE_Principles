@@ -4,6 +4,7 @@ for as long as historically possible
 */
 
 // Geoms
+  // Area of interest example
 var geometry =
     ee.Geometry.Polygon(
         [[[3.2366606229601125, 51.72871193302934],
@@ -13,7 +14,7 @@ var geometry =
 );
 
 
-// Create point features, set a unique ID for each (as an example of a pre-imported FC asset with this info)
+  // point features example, with unique ID's for each (as an example of a pre-imported FC asset with this info)
 var fpt1 = ee.Feature(ee.Geometry.Point([3.60126938760875, 51.62141683472502])).set('P_ID', '1');
 var fpt2 = ee.Feature(ee.Geometry.Point([3.4673735135853123, 51.58772607041174])).set('P_ID','2');
 var fpt3 = ee.Feature(ee.Geometry.Point([3.3767363065540623, 51.529668206157204])).set('P_ID','3');
@@ -28,13 +29,10 @@ var fpts = ee.FeatureCollection(ee.List([
   ee.Feature(fpt5)
   ]));
 
-
-
-
-// Params
+// Sat Params
 var S2_MIN_CLOUD = 80;
 var START = ee.Date('2020-01-01');
-var END = ee.Date('2020-12-31');
+var END = ee.Date('2020-12-31'); //shorten the date to test the print output for <5000 elements
 var BOUNDS = geometry;
 var POINTS = fpts;
 var ZOOM = 9;
@@ -182,7 +180,7 @@ print('S2_L2A_Coll Output Test', S2Joined3.limit(100));
 print ('Will sometimes bring up a JSON error, related to not clipping the outputs');
 
 
-// TO TEST
+// Exporting to a CSV
 // Empty Collection to fill (With removal of null values)
 var ft = ee.FeatureCollection(ee.List([]));
 
@@ -194,10 +192,10 @@ var inift = ee.FeatureCollection(ini);
 // gets the values for the points in the current img, scale set for Sentinel 2.
 var ft2 = img.reduceRegions(POINTS, ee.Reducer.first(),10);
 
-// gets the date of the img
+// gets the date of the img, with a format
 var date = img.date().format('YYYY-MM-dd');
 
-// writes the date in each feature
+// writes the date into each feature
 var ft3 = ft2.map(function(f){return f.set("Date_ISO8601", date)});
 
 // merges the FeatureCollections
