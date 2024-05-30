@@ -1,0 +1,219 @@
+/* Water Quality Indicator Script
+Extracts as many possible RS/EO indicators from satelite algorithms from as many sensors as possible,
+for as long as historically possible
+*/
+
+// Geoms
+var geometry =
+    ee.Geometry.Polygon(
+        [[[3.2366606229601125, 51.72871193302934],
+          [3.2366606229601125, 51.299693191468144],
+          [4.3325468534288625, 51.299693191468144],
+          [4.3325468534288625, 51.72871193302934]]]
+);
+
+var points = /* color: #ffc82d */ee.Geometry.MultiPoint(
+        [[3.60126938760875, 51.62141683472502],
+         [3.4673735135853123, 51.58772607041174],
+         [3.3767363065540623, 51.529668206157204],
+         [3.4357878202259373, 51.46554782316743],
+         [3.5786100858509373, 51.420181679379134],
+         [3.67817368448375, 51.43131339548524],
+         [3.76057114542125, 51.37991361724363],
+         [3.9274260038196873, 51.383342066622134],
+         [3.959698342686875, 51.43687823668119],
+         [4.13135971964, 51.46340892340662],
+         [4.053082131749375, 51.522832996081156],
+         [3.976177834874375, 51.54461665109846],
+         [3.8793608182728123, 51.54760575095669],
+         [3.9274260038196873, 51.5958311957074],
+         [3.8271757596790623, 51.63207326211491],
+         [3.6871000760853123, 51.659768260146286],
+         [3.7193724149525, 51.61033149489151]]
+);
+
+
+// Params
+var S2_MIN_CLOUD = 80;
+var START = ee.Date('2020-01-01');
+var END = ee.Date('2020-01-31');
+var BOUNDS = geometry;
+var POINTS = points;
+var ZOOM = 9;
+
+// Pallettes
+var WCdictPalette = {
+  "names": [
+    "Trees", "Shrubland", "Grassland", "Cropland", "Built-Up",
+    "Barren/Sparse", "Snow/Ice", "Open Water", "Herbaceous Wetland", "Mangroves",
+    "Moss/Lichen"
+  ],
+  ".colours": [
+    '#006400', '#ffbb22', '#ffff4c', '#f096ff', '#fa0000',
+    '#b4b4b4', '#f0f0f0', '#0064c8', '#0096a0', '#00cf75',
+    '#fae6a0'
+  ]};
+
+// Functions
+  // Sat Functions
+function maskS2clouds(image) {
+  var qa = image.select('QA60');
+  var cloudBitMask = 1 << 10;
+  var cirrusBitMask = 1 << 11;
+  var scl = image.select('SCL');
+  var shadowMask = scl.eq(3);
+  // NOTE: It is not currently applied as the shadowmask was too aggressive.
+  var mask = qa.bitwiseAnd(cloudBitMask).eq(0).and(qa.bitwiseAnd(cirrusBitMask).eq(0)/*.and(shadowMask.neq(1))*/);
+  return image.updateMask(mask).divide(10000).copyProperties(image, ["system:time_start"]);
+}
+
+  // General Functions
+function Crop(image) {
+  return image.clip(BOUNDS);
+  }
+
+// Image Collections
+  // EO IC
+var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+.filterDate(START, END)
+.filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', S2_MIN_CLOUD))
+.filterBounds(BOUNDS)
+.map(maskS2clouds);
+
+  // GeoPhys IC
+// ESA Worldcover - Water is 7
+var WCv2021 = ee.ImageCollection("ESA/WorldCover/v200")
+.filterBounds(BOUNDS);
+var WCmosaic = WCv2021.mosaic()
+.remap([10,20,30,40,50,60,70,80,90,95,100],[0,1,2,3,4,5,6,7,8,9,10]);
+
+
+// Landcover Masking
+  // Landcover Water Mask Creation
+var ESAWCMaskWater = WCmosaic.eq(7); // Only Water
+var ESAWCMaskWater = WCmosaic.updateMask(ESAWCMaskWater);
+var WCMask = function(image) {
+    return image.updateMask(ESAWCMaskWater);
+  };
+
+  // Sat Masking
+// Apply the mask to every image in the collection using .map
+var S2_L2A_WM = S2_L2A.map(WCMask);
+
+// Example Band Equations
+  // L2A
+var S2_L2A_B3B1 = S2_L2A_WM.map(function (image) {
+  return image.expression(
+    '(B3/B1)', {
+      'B1': image.select('B1'),
+      'B3': image.select('B3')
+  }).rename('S2_L2A_B3B1')
+  // HAVE TO ADD THE COPY PROPERTIES TO ALLOW FILTERING/TIMESERIES
+  .copyProperties(image, ["system:time_start"]);
+});
+
+var S2_L2A_B4B1 = S2_L2A_WM.map(function (image) {
+  return image.expression(
+    '(B4-B1)', {
+      'B1': image.select('B1'),
+      'B4': image.select('B4')
+  }).rename('S2_L2A_B4B1')
+  .copyProperties(image, ["system:time_start"]);
+});
+
+var S2_L2A_B5B1 = S2_L2A_WM.map(function (image) {
+  return image.expression(
+    '(B5*B1)', {
+      'B5': image.select('B5'),
+      'B1': image.select('B1')
+  }).rename('S2_L2A_B5B1')
+  .copyProperties(image, ["system:time_start"]);
+});
+
+var S2_L2A_B6B1 = S2_L2A_WM.map(function (image) {
+  return image.expression(
+    '(B6/B1)', {
+      'B6': image.select('B6'),
+      'B1': image.select('B1')
+  }).rename('S2_L2A_B6B1')
+  .copyProperties(image, ["system:time_start"]);
+});
+
+
+// Mapping (Displays)
+  // Bounds
+Map.centerObject(BOUNDS, ZOOM);
+Map.addLayer(BOUNDS, {color: 'black'}, 'Bounds');
+
+  // Landcovers
+    // Bounded
+Map.addLayer(WCmosaic, {min:0, max:10, palette:WCdictPalette['.colours']}, 'ESA WorldCover 2021', false);
+    // Water Masked
+Map.addLayer(ESAWCMaskWater, {"opacity":1,"bands":["remapped"],"palette":["#0095ff"]}, 'ESA Worldcover 2021 Water Mask', false);
+  // Points 
+Map.addLayer(POINTS,{color:'red', pointsize:2}, 'Points');
+
+
+// Charting (Display and Export)
+  // Sat Collection Joining
+var FieldFilt_ts = ee.Filter.equals({
+  leftField: 'system:time_start',
+  rightField: 'system:time_start'
+});
+var CreateJoin = ee.Join.inner();
+
+  // S2  Joins
+    // S2 L2A (Final Joined IC name = S2Joined3)
+var S2_Joins1 = ee.ImageCollection(CreateJoin.apply(S2_L2A_B3B1, S2_L2A_B4B1, FieldFilt_ts));
+var S2Joined = S2_Joins1.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+});    
+
+var S2_Joins2 = ee.ImageCollection(CreateJoin.apply(S2Joined, S2_L2A_B5B1, FieldFilt_ts));
+var S2Joined2 = S2_Joins2.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+}); 
+
+var S2_Joins3 = ee.ImageCollection(CreateJoin.apply(S2Joined2, S2_L2A_B6B1, FieldFilt_ts));
+var S2Joined3 = S2_Joins3.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+}); 
+
+  // Sat Coll Join Testing
+print('S2_L2A_Coll Output Test', S2Joined3.limit(100));
+
+
+// TO TEST
+// Empty Collection to fill
+var ft = ee.FeatureCollection(ee.List([]));
+//With removal of null values ------------------------------------------
+//Function to extract values from image collection based on point file and export as a table 
+var fill = function(img, ini) {
+// type cast
+var inift = ee.FeatureCollection(ini);
+
+// gets the values for the points in the current img, average the data by a 30m buffer around each point
+var ft2 = img.reduceRegions(points, ee.Reducer.mean(),30);
+
+// gets the date of the img
+var date = img.date().format();
+
+// writes the date in each feature
+var ft3 = ft2.map(function(f){return f.set("date", date)});
+
+// merges the FeatureCollections
+var ft3a = ft3.filter(ee.Filter.neq('S2_L2A_B3B1', null));//filter first result to remove null values
+return inift.merge(ft3a);
+};
+
+// Iterates over the ImageCollection
+var newft_remove_null = ee.FeatureCollection(S2Joined3.iterate(fill, ft));
+// Adding .limit() does nothing because it's an iteration, so the print test fails if you put an extremely large time range
+print('NewFeature,Nulls Removed Output Test',newft_remove_null);
+print('The above active output will fail if you put a long time (i.e. 2018-2024), but will run as a passive export task');
+
+// Export
+Export.table.toDrive(newft_remove_null,
+"S2_L2A_Test",
+"EarthEngineExportsTEST",
+"S2_L2A_testtable");
