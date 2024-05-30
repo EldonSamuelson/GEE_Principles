@@ -12,25 +12,23 @@ var geometry =
           [4.3325468534288625, 51.72871193302934]]]
 );
 
-var points = /* color: #ffc82d */ee.Geometry.MultiPoint(
-        [[3.60126938760875, 51.62141683472502],
-         [3.4673735135853123, 51.58772607041174],
-         [3.3767363065540623, 51.529668206157204],
-         [3.4357878202259373, 51.46554782316743],
-         [3.5786100858509373, 51.420181679379134],
-         [3.67817368448375, 51.43131339548524],
-         [3.76057114542125, 51.37991361724363],
-         [3.9274260038196873, 51.383342066622134],
-         [3.959698342686875, 51.43687823668119],
-         [4.13135971964, 51.46340892340662],
-         [4.053082131749375, 51.522832996081156],
-         [3.976177834874375, 51.54461665109846],
-         [3.8793608182728123, 51.54760575095669],
-         [3.9274260038196873, 51.5958311957074],
-         [3.8271757596790623, 51.63207326211491],
-         [3.6871000760853123, 51.659768260146286],
-         [3.7193724149525, 51.61033149489151]]
-);
+
+// Create point features, set a unique ID for each (as an example of a pre-imported FC asset with this info)
+var fpt1 = ee.Feature(ee.Geometry.Point([3.60126938760875, 51.62141683472502])).set('P_ID', '1');
+var fpt2 = ee.Feature(ee.Geometry.Point([3.4673735135853123, 51.58772607041174])).set('P_ID','2');
+var fpt3 = ee.Feature(ee.Geometry.Point([3.3767363065540623, 51.529668206157204])).set('P_ID','3');
+var fpt4 = ee.Feature(ee.Geometry.Point([3.4357878202259373, 51.46554782316743])).set('P_ID','4');
+var fpt5 = ee.Feature(ee.Geometry.Point([3.5786100858509373, 51.420181679379134])).set('P_ID','5');
+
+var fpts = ee.FeatureCollection(ee.List([
+  ee.Feature(fpt1),
+  ee.Feature(fpt2),
+  ee.Feature(fpt3),
+  ee.Feature(fpt4),
+  ee.Feature(fpt5)
+  ]));
+
+
 
 
 // Params
@@ -38,7 +36,7 @@ var S2_MIN_CLOUD = 80;
 var START = ee.Date('2020-01-01');
 var END = ee.Date('2020-12-31');
 var BOUNDS = geometry;
-var POINTS = points;
+var POINTS = fpts;
 var ZOOM = 9;
 
 // Pallettes
@@ -194,7 +192,7 @@ var fill = function(img, ini) {
 var inift = ee.FeatureCollection(ini);
 
 // gets the values for the points in the current img, scale set for Sentinel 2.
-var ft2 = img.reduceRegions(points, ee.Reducer.first(),10);
+var ft2 = img.reduceRegions(POINTS, ee.Reducer.first(),10);
 
 // gets the date of the img
 var date = img.date().format('YYYY-MM-dd');
