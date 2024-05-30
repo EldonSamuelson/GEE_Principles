@@ -210,7 +210,11 @@ print('NewFeature,Nulls Removed Output Test',newft_remove_null);
 print('The above active output will fail if you put a long time (i.e. 2018-2024), but will run as a passive export task');
 
 // Export
-Export.table.toDrive(newft_remove_null,
-"S2_L2A_Test",
-"EarthEngineExportsTEST",
-"S2_L2A_testtable");
+Export.table.toDrive({
+  collection: newft_remove_null,
+  description:'S2_L2A_Test',
+  folder: 'EarthEngineExports',
+  fileFormat: 'CSV',
+  selectors: ['Date_ISO8601','P_ID','S2_L2A_B3B1','S2_L2A_B4B1','S2_L2A_B5B1','S2_L2A_B6B1']
+});
+
