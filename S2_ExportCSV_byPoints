@@ -181,6 +181,7 @@ var S2Joined3 = S2_Joins3.map(function(feature) {
 
   // Sat Coll Join Testing
 print('S2_L2A_Coll Output Test', S2Joined3.limit(100));
+print ('Will sometimes bring up a JSON error, related to not clipping the outputs');
 
 
 // TO TEST
