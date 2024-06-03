@@ -1,5 +1,19 @@
-var SPOT5 = ee.Image("users/SeamusWOD/Imagery/RS/SPOT5_L1C_11-3-12_T1123_TOA");
+// To see these SPOT images, please enter these into the URL bar and press Enter: 
+// https://code.earthengine.google.com/?asset=users/SeamusWOD/Imagery/RS/SPOT5_L1C_11-3-12_T1123_TOA
+// https://code.earthengine.google.com/?asset=users/SeamusWOD/Imagery/RS/SPOT5_L1C_21-6-10_T1124_DN_CARTO2A
 
+var SPOT5_TOA = ee.Image("users/SeamusWOD/Imagery/RS/SPOT5_L1C_11-3-12_T1123_TOA");
+var SPOT5_L1C_DN = ee.Image("users/SeamusWOD/Imagery/RS/SPOT5_L1C_11-3-12_T1123_DN_CARTO2A");
+
+// The CARTO processed result that converts L1 Radiance images downloaded from SWH to DN Orthorectified images
+// See https://swh-2a-carto.fr/
+Map.addLayer(SPOT5_L1C_DN,null,'SPOT 5 ToA (Dimensionless Radiance)');
+
+// Following some band math equations applied via QGIS to the image, you can calculate the ToA Reflectance
+// See here: https://gis.stackexchange.com/questions/110851/spot-2-5-convert-dn-to-toa-using-qgis/440646#440646
+
+// Then you can visualise a ToA Reflectance image.
+// See: https://gis.stackexchange.com/questions/413743/when-visualizing-worldview-and-ikonos-imagery-in-google-earth-engine-my-images/441102#441102
 var SpotVis = {
   //    B1(R)  B2(G)  B3(B)
   min: [0.011, 0.024, 0.083],
@@ -7,6 +21,15 @@ var SpotVis = {
   bands: ['b1', 'b2', 'b3']
 };
 
-Map.addLayer(SPOT5,SpotVis,'SPOT 5 Test using SpotVis');
+// Different ways of visualising a SPOT 5 TOA Reflectance image
+// Note: No Blue Band, so it's 'Green [B1], Red [B2], NIR [B3], SWIR [B4]' respectively
+Map.addLayer(SPOT5_TOA,null,'SPOT 5 ToA Reflectance without visualisation');
+Map.addLayer(SPOT5_TOA,{bands:['b1','b2','b3'], 
+                    min: [0.011, 0.024, 0.083], 
+                    max: [0.154, 0.144, 0.336]},
+                    'SPOT 5 ToA Reflectance with manual visualisation');
+Map.addLayer(SPOT5_TOA,SpotVis,'SPOT 5 ToA Reflectance using SpotVis');
 
-Map.addLayer(SPOT5,{bands:['b1','b2','b3'], min: [0.011, 0.024, 0.083], max: [0.154, 0.144, 0.336]}, 'SPOT 5 Test w/o SpotVis');
+// Look towards Oxford, UK to see the result.
+Map.centerObject(SPOT5_TOA,10);
+
