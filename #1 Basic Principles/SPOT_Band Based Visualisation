@@ -1,4 +1,4 @@
-var SPOT5 = ee.Image("users/SeamusWOD/SPOT5_L1C_11-3-12_T1123_TOA");
+var SPOT5 = ee.Image("users/SeamusWOD/Imagery/RS/SPOT5_L1C_11-3-12_T1123_TOA");
 
 var SpotVis = {
   //    B1(R)  B2(G)  B3(B)
