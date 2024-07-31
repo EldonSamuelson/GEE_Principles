@@ -1,9 +1,12 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var Screen1992x1121Ratio16x9 = /* color: #e2e2e2 */ee.Geometry.Polygon(
-        [[[-4.809295410244136, 52.16509794236564],
-          [-4.809295410244136, 52.04152093655858],
-          [-4.451553100673824, 52.04152093655858],
-          [-4.451553100673824, 52.16509794236564]]], null, false);
+var Screen1992x1121Ratio16x9 = 
+    /* color: #e2e2e2 */
+    /* shown: false */
+    ee.Geometry.Polygon(
+        [[[-10.086166137783199, 52.34583712393909],
+          [-10.086166137783199, 52.222762238947475],
+          [-9.728423828212886, 52.222762238947475],
+          [-9.728423828212886, 52.34583712393909]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
@@ -38,8 +41,8 @@ var BOUNDS = Screen1992x1121Ratio16x9;
 //    Based on GEE's 1-24 level system. Larger number = More Zoom
 var ZOOM = 11;
 // ## PREVIEW DATES ## 
-var FRST_PRVW_DATE = '2023-06-02';
-var LAST_PRVW_DATE = '2023-06-04';
+var FRST_PRVW_DATE = '2024-05-31';
+var LAST_PRVW_DATE = '2024-06-02';
 /*    For displaying a particular date on the map, as otherwise the Layers don't match
 *     To display a particular image on a particular time, select the day before and after it
 *     i.e. "2022-03-31" requires the filter to be set between 03-30 and 04-01
