@@ -1,13 +1,9 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var Screen1080x1920 = 
-    /* color: #ffc82d */
-    /* shown: false */
-    /* locked: true */
-    ee.Geometry.Polygon(
-        [[[-6.563503021328021, 54.67786216845663],
-          [-6.563503021328021, 54.57868983542413],
-          [-6.252109283535052, 54.57868983542413],
-          [-6.252109283535052, 54.67786216845663]]], null, false);
+var Screen1992x1121 = /* color: #e2e2e2 */ee.Geometry.Polygon(
+        [[[-4.809295410244136, 52.16509794236564],
+          [-4.809295410244136, 52.04152093655858],
+          [-4.451553100673824, 52.04152093655858],
+          [-4.451553100673824, 52.16509794236564]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
@@ -23,7 +19,7 @@ var MIN_CLOUD_PERCENT = 10;
 *    Set to 100 to not filter at all, and put the heavy lifting onto Masking cloud probability instead
 */
 // # MAX CLOUD PROBABILITY #
-var MAX_CLOUD_PROB = 18;
+var MAX_CLOUD_PROB = 100;
 /*   Deals with clouds IN-IMAGE - Areas that have >Y% probability of being a cloud are masked out within the tile
 *    This maximises frequency of images, but at the cost of requiring more processing to analyse every available image
 *    Lower numbers increases the range of criteria that match 'clouds' to mask 
@@ -32,9 +28,9 @@ var MAX_CLOUD_PROB = 18;
 // ## START/END DATE ## 
 //    Format: 'YYYY-MM-DD', include the quotes. This for the time series range.
 var START_DATE = '2018-01-01';
-var END_DATE = '2024-01-01';
+var END_DATE = '2025-01-01';
 // ## BOUNDS ## 
-var BOUNDS = Screen1080x1920;
+var BOUNDS = Screen1992x1121;
 //    Format: Either be a drawn geometry shape within GEE, or an imported SHP file
 //    See: https://developers.google.com/earth-engine/guides/table_upload#upload-a-shapefile
 
@@ -42,8 +38,8 @@ var BOUNDS = Screen1080x1920;
 //    Based on GEE's 1-24 level system. Larger number = More Zoom
 var ZOOM = 11;
 // ## PREVIEW DATES ## 
-var FRST_PRVW_DATE = '2023-06-04';
-var LAST_PRVW_DATE = '2023-06-06';
+var FRST_PRVW_DATE = '2023-06-02';
+var LAST_PRVW_DATE = '2023-06-04';
 /*    For displaying a particular date on the map, as otherwise the Layers don't match
 *     To display a particular image on a particular time, select the day before and after it
 *     i.e. "2022-03-31" requires the filter to be set between 03-30 and 04-01
@@ -84,13 +80,13 @@ var NDVIPalette = palettes.colorbrewer.RdYlGn[10];
 // Truecolour (R-G-B) Visualisation (for Sentinel 2 Imagery only)
 var RGBVis = {
   min: 0,
-  max: 0.35,
+  max: 0.3,
   bands: ['B4', 'B3', 'B2'],
 };
 // Falsecolour (IR-G-B) Visualisation (for S2 - Not in use, but available)
 var NIRVis = {
   min: 0,
-  max: 0.55,
+  max: 0.5,
   bands: ['B8', 'B3', 'B2'],
 };
 // NDWI Visualisation
@@ -139,6 +135,7 @@ print('Sentinel 2 Cloud Mask Function Complete');
                   *  Data is limited to 2017-03-28 onwards. (i.e. older data has to come from non-harmonised datasets)
                   */
 var S2_L2A = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+                  .select('B2','B3', 'B4', 'B8','B8A','B9', 'QA60')
                   // Filter by Date Period (YYYY-MM-DD)
                   .filterDate(START_DATE, END_DATE)
                   /* 
@@ -187,8 +184,8 @@ var S2CloudMasked =
 print('Time, Date, Bounding, Clipping, and Cloud Tile Filtering parameters set for Imagery');
 
 // Map Collections to View
-print(S2_L2A);
-print(S2CloudMasked);
+print('L2A Collection',S2_L2A);
+print('L2A Collection Cloud Masked',S2CloudMasked);
 Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), RGBVis,'L2A ClearSkies');
 Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NIRVis,'L2A Aerochrome');
 
@@ -219,10 +216,16 @@ var list = SystemIndex.aggregate_array('SysIndex');
 var list_1st = list.get(0);
 //    # MOSAICING #
 //    Mosaics the current filterered view into a single image, for exporting
-var S2_L2A_Mosaic = S2CloudMasked.mosaic().set(list_1st);
+var S2_Median = S2CloudMasked.reduce(ee.Reducer.median()).set(list_1st);
+print(S2_Median);
+var S2_L2A_Mosaic = S2_Median
+                    .select(['B2_median','B3_median','B4_median','B8_median','B8A_median','B9_median','QA60_median'],
+                            ['B2','B3','B4','B8','B8A','B9','QA60']);
+//var S2_L2A_Mosaic = S2CloudMasked.mosaic().set(list_1st);
 // Display the Layers that are to be exported (for final confirmation of download)
 Map.addLayer(S2_L2A_Mosaic, RGBVis, 'L2A Export');
 Map.addLayer(S2_L2A_Mosaic, NIRVis, 'L2A Aerochrome Export');
+print('L2A Mosaic',S2_L2A_Mosaic);
 
 //    # PROPERTY APPLICATION #
 // Gets the System:Index of the Mosaic as a String
@@ -236,8 +239,8 @@ var index = S2_L2A_Mosaic.get('system:index');
 var index = index.getInfo().slice(0,13);
 //    # EXPORTS #   
 Export.image.toDrive({
-    image: S2_L2A_Mosaic.visualize(NIRVis), // Sets the image to keep the current Visualisation parameters
-    region: Screen1080x1920, // The area of interest
+    image: S2_L2A_Mosaic.visualize(RGBVis), // Sets the image to keep the current Visualisation parameters
+    region: BOUNDS, // The area of interest
     description: 'LOCATION_' + index, // Sets the name of the image(s) with the date
     folder: 'GEE_Wallpapers', // The destination folder for the imagery in your Account's Google Drive
     scale: '20', // scale in m/px. 'Nominal' returns requested image AT TRUE SCALE
