@@ -1,12 +1,9 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var Screen1992x1121Ratio16x9 = 
-    /* color: #e2e2e2 */
-    /* shown: false */
-    ee.Geometry.Polygon(
-        [[[-10.086166137783199, 52.34583712393909],
-          [-10.086166137783199, 52.222762238947475],
-          [-9.728423828212886, 52.222762238947475],
-          [-9.728423828212886, 52.34583712393909]]], null, false);
+var Screen1992x1121Ratio16x9 = /* color: #e2e2e2 */ee.Geometry.Polygon(
+        [[[16.162231689365257, 48.2841177640605],
+          [16.162231689365257, 48.150064858957066],
+          [16.51997399893557, 48.150064858957066],
+          [16.51997399893557, 48.2841177640605]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // #### SCRIPT START ####
 // ##################
@@ -41,8 +38,8 @@ var BOUNDS = Screen1992x1121Ratio16x9;
 //    Based on GEE's 1-24 level system. Larger number = More Zoom
 var ZOOM = 11;
 // ## PREVIEW DATES ## 
-var FRST_PRVW_DATE = '2024-05-31';
-var LAST_PRVW_DATE = '2024-06-02';
+var FRST_PRVW_DATE = '2023-01-01';
+var LAST_PRVW_DATE = '2025-01-01';
 /*    For displaying a particular date on the map, as otherwise the Layers don't match
 *     To display a particular image on a particular time, select the day before and after it
 *     i.e. "2022-03-31" requires the filter to be set between 03-30 and 04-01
@@ -189,8 +186,8 @@ print('Time, Date, Bounding, Clipping, and Cloud Tile Filtering parameters set f
 // Map Collections to View
 print('L2A Collection',S2_L2A);
 print('L2A Collection Cloud Masked',S2CloudMasked);
-Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), RGBVis,'L2A ClearSkies');
-Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NIRVis,'L2A Aerochrome');
+Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), RGBVis,'L2A ClearSkies',false);
+Map.addLayer(S2CloudMasked.filterDate(FRST_PRVW_DATE, LAST_PRVW_DATE), NIRVis,'L2A Aerochrome',false);
 
 // ###############
 // ### BUTTONS ###
