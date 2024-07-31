@@ -1,5 +1,5 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
-var Screen1992x1121 = /* color: #e2e2e2 */ee.Geometry.Polygon(
+var Screen1992x1121Ratio16x9 = /* color: #e2e2e2 */ee.Geometry.Polygon(
         [[[-4.809295410244136, 52.16509794236564],
           [-4.809295410244136, 52.04152093655858],
           [-4.451553100673824, 52.04152093655858],
@@ -30,7 +30,7 @@ var MAX_CLOUD_PROB = 100;
 var START_DATE = '2018-01-01';
 var END_DATE = '2025-01-01';
 // ## BOUNDS ## 
-var BOUNDS = Screen1992x1121;
+var BOUNDS = Screen1992x1121Ratio16x9;
 //    Format: Either be a drawn geometry shape within GEE, or an imported SHP file
 //    See: https://developers.google.com/earth-engine/guides/table_upload#upload-a-shapefile
 
