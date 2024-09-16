@@ -4,11 +4,12 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     gldas = ee.ImageCollection("NASA/GLDAS/V021/NOAH/G025/T3H"),
     ThamesWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Thames_WS_Dissolved"),
     ColneWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Colne_WS_Dissolved"),
-    KennetWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_KLE_WS_Dissolved");
+    KennetWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_KLE_WS_Dissolved"),
+    BlackwaterWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Blackwater_WS_Dissolved");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.1
 // Source: Kel Markert (GEE)
-// Modified by Séamus O'D 07/03/2024
+// Modified by Séamus O'D 16/09/2024
 
 // load in basin collection
 // can use features from GEE or imported assets
@@ -16,6 +17,12 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 var Thames = ThamesWS;
 var Colne = ColneWS;
 var Kennet = KennetWS;
+var Blackwater = BlackwaterWS;
+// Shapefiles NEED to have all required columns (selectors) to function. 
+// Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
+// a shapefile doesn't have those columns
+
+var Catchment = Blackwater;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
@@ -23,7 +30,7 @@ var scale = 10000;
 
 // set start and end date for time series to export
 var startDate = ee.Date("2015-01-01");
-var endDate = ee.Date("2023-08-01");
+var endDate = ee.Date("2024-09-01");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
 
@@ -49,14 +56,14 @@ function dateMetReduction(i){
     .filterDate(t1,t2)
     .select(['temperature_2m'],['ERA5L_temp2m'])
     .mean()
-    .subtract(273.15);
+    /*.subtract(273.15)*/;
     
   // get GLDAS temp in C for the day
   var GLDAStemp = gldas
     .filterDate(t1,t2)
     .select(['Tair_f_inst'],['GLDAS_airT'])
     .mean()
-    .subtract(273.15);
+    /*.subtract(273.15)*/;
     
   // get the accumulated precip for a day from IMERG
   var IMERGprecip = imerg
@@ -84,7 +91,7 @@ function dateMetReduction(i){
  // use for a collection of catchments
  // this will output a collection where the met data will be properties
   var result = forcingImg.reduceRegions({
-    collection: Thames,
+    collection: Catchment,
     reducer: ee.Reducer.mean(),
     scale: scale
   });
@@ -137,3 +144,4 @@ Map.centerObject(Thames, 8);
 Map.addLayer(Thames.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Thames');
 Map.addLayer(Colne.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Colne');
 Map.addLayer(Kennet.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Kennet');
+Map.addLayer(Blackwater.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Blackwater');
