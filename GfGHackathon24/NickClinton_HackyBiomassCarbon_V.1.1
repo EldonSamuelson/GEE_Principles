@@ -3,7 +3,20 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
     table = ee.FeatureCollection("users/nclinton/world_regions"),
     worldclim = ee.ImageCollection("WORLDCLIM/V1/MONTHLY"),
     terraclimate = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE"),
-    dw = ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1");
+    dw = ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1"),
+    geometry = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[-10.581238228356575, 52.33533168933023],
+          [-10.581238228356575, 52.06768129414816],
+          [-9.6817326131222, 52.06768129414816],
+          [-9.6817326131222, 52.33533168933023]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // V1.1 Hackathon substitutions
 /*
@@ -16,14 +29,18 @@ kernel: ee.Kernel.guassian(200)
 {
 gez asset (not used)
 }
+- Set Center, Clip Geom 
+{Map.setCenter(-10,52.20,12); // Dingle Peninsula, IE
+}
 */
 
 // Biomass -------------------------------------------------------------
 
 // "table" is from https://gis.ucla.edu/geodata/dataset/world_regions
 // "gez" is from https://storage.googleapis.com/fao-maps-catalog-data/uuid/2fb209d0-fd34-4e5e-a3d8-a13c241eb61b/resources/gez2010.zip
+Map.setCenter(-10,52.20,12);
 
-var proj30 = ee.Projection('EPSG:4326').atScale(30)
+var proj30 = ee.Projection('EPSG:4326').atScale(30);
 var dsm = alos.select('DSM').mosaic()
     .setDefaultProjection(proj30);
 
@@ -92,7 +109,7 @@ var regionsImages = regionsFeatures.map(function(k, v) {
 // Table 2, http://www.fao.org/3/a-ap861e.pdf
 // Note: WorldClim is based on 1960-1990 data.
 // Note: tropical - subTropical is not dichotomous.
-worldclim = worldclim.map(function(image) { return image.resample('bilinear') })
+worldclim = worldclim.map(function(image) { return image.resample('bilinear') });
 var tropical = worldclim
     .select('tavg')
     .map(function(image) {
@@ -100,16 +117,16 @@ var tropical = worldclim
     })
     .reduce('sum', 16)
     .eq(12)
-    .rename('tavg')
+    .rename('tavg');
 
 // Number of months >10 C.
 var tempTen = worldclim
     .select('tavg')
     .map(function(image) {
-      return image.multiply(0.1).gte(10)
+      return image.multiply(0.1).gte(10);
     })
     .reduce('sum', 16)
-    .rename('tavg')
+    .rename('tavg');
 
 var thresholds = ee.Image([8, 4, 0]);
 
@@ -122,7 +139,7 @@ var domainsCollection = ee.ImageCollection([
   domains.eq(2).rename('temperate').set('climateDomain', 'temperate'),
   domains.eq(3).rename('subtropical').set('climateDomain', 'subtropical'),
   domains.eq(4).rename('tropical').set('climateDomain', 'tropical'),
-])
+]);
 // Map.addLayer(domains, {min: 0, max: 4}, 'domains', false);
 
 
@@ -147,21 +164,21 @@ var coldest = worldclim.select('tmin').reduce('min', 16).multiply(0.1).rename('t
 var dryMonths = worldclim.map(function(image) {
   return image.select('prec').multiply(2).lte(image.select('tavg')).rename('dry');
 });
-var numDry = dryMonths.reduce('sum', 16).rename('dry')
+var numDry = dryMonths.reduce('sum', 16).rename('dry');
 // Map.addLayer(numDry, {min: 0, max: 12}, 'numDry');
 
 // Total annual precipitation, mm.
 var annualPrecip = worldclim
     .select('prec')
     .reduce('sum', 16)
-    .rename('prec')
+    .rename('prec');
 
 // Mean annual temperature.
 var mat = worldclim
     .select('tavg')
     .reduce('mean', 16)
     .multiply(0.1)
-    .rename('tavg')
+    .rename('tavg');
 
 // Total annual potential evapotranspiration, mm.
 var petAnnual = terraclimate.map(function(image) { return image.resample('bilinear') })
@@ -170,7 +187,7 @@ var petAnnual = terraclimate.map(function(image) { return image.resample('biline
     .reduce('sum', 16)
     .divide(31) // 1991-1960
     .multiply(0.1) // scaling factor
-    .rename('pet')
+    .rename('pet');
 // Map.addLayer(petAnnual, {min: 0}, 'petAnnual', false);
 
 // Ratio of precipitation/PET
@@ -245,7 +262,7 @@ var ecoZonesImage = ee.Image.cat([
   warmTemperateWet, warmTemperateDry, coldTemperateWet, coldTemperateDry,
   borealMontane, borealMoist, borealDry,
   polar
-])
+]);
 // Map.addLayer(ecoZonesImage, {}, 'ecoZonesImage', false)
 // Map.addLayer(ecoZonesImage.reduce('sum'), {min: 2, max: 5}, 'ecoZonesImage sum', false)
 
@@ -296,8 +313,8 @@ var getFeature = function(climateDomain, zone, region, age, biomass) {
     'region': region,
     'age': age,
     'biomass': biomass
-  })
-}
+  });
+};
 
 // From https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/4_Volume4/19R_V4_Ch04_Forest%20Land.pdf
 // Table 4.7 (updated).  Tonnes dm per ha.
@@ -513,7 +530,7 @@ var biomassTable = ee.FeatureCollection([
   getFeature('temperate', 'desert', 'europe', 'primary', 0),
   getFeature('temperate', 'desert', 'europe', 'secondaryGt20', 0),
   getFeature('temperate', 'desert', 'europe', 'secondaryLte20', 0),
-])
+]);
 
 
 // Map from names in the forest biomass table to general ecozone names.
@@ -534,26 +551,26 @@ var forestZonesToEcoZones = ee.Dictionary({
   'steppe': 'steppe',
   'coniferous': 'moist',
   'tundra_woodland': 'dry',
-})
+});
 
 var forestCarbon = ee.ImageCollection(domainsCollection.map(function(domainImage) {
-  var domain = domainImage.get('climateDomain')
-  var forestZones = biomassTable.filter(ee.Filter.eq('climateDomain', domain))
+  var domain = domainImage.get('climateDomain');
+  var forestZones = biomassTable.filter(ee.Filter.eq('climateDomain', domain));
   return ee.ImageCollection(forestZones.map(function(f) {
-    var forestZone = f.get('zone')
-    var ecoZone = forestZonesToEcoZones.get(forestZone)
-    var region = regionsFeatures.get(f.get('region'))
-    var age = f.get('age')
-    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone)
-    var biomassPerHa = f.get('biomass')
+    var forestZone = f.get('zone');
+    var ecoZone = forestZonesToEcoZones.get(forestZone);
+    var region = regionsFeatures.get(f.get('region'));
+    var age = f.get('age');
+    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone);
+    var biomassPerHa = f.get('biomass');
     return domainImage.multiply(ecoZoneImage).multiply(ee.Image.constant(biomassPerHa))
         .clipToCollection(region)
         .updateMask(ecoZoneImage)
         .rename('biomass')
         .set('age', age)
-        .float()
-  }))
-}).flatten())
+        .float();
+  }));
+}).flatten());
 
 // Map.addLayer(forestCarbon.filter(ee.Filter.eq('age', 'primary')).max().reduceNeighborhood({reducer:ee.Reducer.mean(),kernel:ee.Kernel.gaussian(200)}), 
 //     {min: 0, max: 433}, 'primary forest biomass', false)
@@ -592,26 +609,26 @@ var cropTable = ee.FeatureCollection([
   getFeature('tropical', 'desert', 'global', 'harvest', 0),
   getFeature('subtropical', 'desert', 'global', 'harvest', 0),
   getFeature('temperate', 'desert', 'global', 'harvest', 0),
-])
+]);
 
 
 var cropCarbon = ee.ImageCollection(domainsCollection.map(function(domainImage) {
-  var domain = domainImage.get('climateDomain')
-  var cropZones = cropTable.filter(ee.Filter.eq('climateDomain', domain))
+  var domain = domainImage.get('climateDomain');
+  var cropZones = cropTable.filter(ee.Filter.eq('climateDomain', domain));
   return ee.ImageCollection(cropZones.map(function(f) {
-    var ecoZone = f.get('zone')
-    var region = regionsFeatures.get(f.get('region'))
-    var age = f.get('age')
-    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone)
-    var biomassPerHa = f.get('biomass')
+    var ecoZone = f.get('zone');
+    var region = regionsFeatures.get(f.get('region'));
+    var age = f.get('age');
+    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone);
+    var biomassPerHa = f.get('biomass');
     return domainImage.multiply(ecoZoneImage).multiply(ee.Image.constant(biomassPerHa))
         .clipToCollection(region)
         .updateMask(ecoZoneImage)
         .rename('biomass')
         .set('age', age)
-        .float()
-  }))
-}).flatten())
+        .float();
+  }));
+}).flatten());
 
 // Map.addLayer(cropCarbon.max().reduceNeighborhood({reducer:ee.Reducer.mean(),kernel:ee.Kernel.gaussian(200)}), {min: 0, max: 60}, 'crop biomass', false)
 
@@ -642,40 +659,40 @@ var grassTable = ee.FeatureCollection([
   getFeature('tropical', 'desert', 'global', 'ungrazed', 0),
   getFeature('subtropical', 'desert', 'global', 'ungrazed', 0),
   getFeature('temperate', 'desert', 'global', 'ungrazed', 0),
-])
+]);
 
 
 var grassCarbon = ee.ImageCollection(domainsCollection.map(function(domainImage) {
-  var domain = domainImage.get('climateDomain')
-  var grassZones = grassTable.filter(ee.Filter.eq('climateDomain', domain))
+  var domain = domainImage.get('climateDomain');
+  var grassZones = grassTable.filter(ee.Filter.eq('climateDomain', domain));
   return ee.ImageCollection(grassZones.map(function(f) {
-    var ecoZone = f.get('zone')
-    var region = regionsFeatures.get(f.get('region'))
-    var age = f.get('age')
-    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone)
-    var biomassPerHa = f.get('biomass')
+    var ecoZone = f.get('zone');
+    var region = regionsFeatures.get(f.get('region'));
+    var age = f.get('age');
+    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone);
+    var biomassPerHa = f.get('biomass');
     return domainImage.multiply(ecoZoneImage).multiply(ee.Image.constant(biomassPerHa))
         .clipToCollection(region)
         .updateMask(ecoZoneImage)
         .rename('biomass')
         .set('age', age)
-        .float()
-  }))
-}).flatten())
+        .float();
+  }));
+}).flatten());
 
 // Map.addLayer(grassCarbon.max().reduceNeighborhood({reducer:ee.Reducer.mean(),kernel:ee.Kernel.gaussian(200)}), {min: 0, max: 6}, 'grass biomass', false)
 
 // Shrub, scrub, chaparral
 // https://www.jstor.org/stable/44841117
 // Tonnes per ha.
-var calShrubMixed = 34.61
-var calShrubChamise = 21.14
-var calShrubSage = 15.83
+var calShrubMixed = 34.61;
+var calShrubChamise = 21.14;
+var calShrubSage = 15.83;
 // https://www.sciencedirect.com/science/article/abs/pii/S0961953417302325
-var iberiaLow = 3
-var iberiaHigh = 16
+var iberiaLow = 3;
+var iberiaHigh = 16;
 // Placeholder.  Somewhat higher than grass, lower than the highest crops.
-var shrubCarbon = 15
+var shrubCarbon = 15;
 
 
 var class2potential = ee.Image.cat([
@@ -697,36 +714,36 @@ var class2potential = ee.Image.cat([
   ee.Image(0).rename('built'),
   ee.Image(0).rename('bare'),
   ee.Image(0).rename('snow_and_ice'),
-])
+]);
 
 var imageBandNames = class2potential.bandNames().map(function(s) {
-  return ee.String(s).cat('_mean')
-})
+  return ee.String(s).cat('_mean');
+});
 
 
 var potentialCarbon = function(image) {
   return class2potential
       .multiply(image)
-      .reduce('sum')
-}
+      .reduce('sum');
+};
 
 
 var estBiomass = function(start, end) {
   var dwFiltered = dw.filterDate(start, end)
       .reduce('mean', 16)
-      .select(imageBandNames, class2potential.bandNames())
-  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa')
-}
+      .select(imageBandNames, class2potential.bandNames());
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa').clip(geometry);
+};
 
 
 var estBiomassRegion = function(start, end, region) {
   var dwFiltered = dw.filterBounds(region).filterDate(start, end)
       .reduce('mean', 16)
-      .select(imageBandNames, class2potential.bandNames())
-  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa')
-}
+      .select(imageBandNames, class2potential.bandNames());
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa').clip(geometry);
+};
 
 Map.addLayer(
   estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')), 
   {min: 50, max: 250}, 
-  'estBiomass')
+  'estBiomass');
