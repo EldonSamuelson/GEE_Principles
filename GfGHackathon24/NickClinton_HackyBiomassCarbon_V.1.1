@@ -793,9 +793,23 @@ var estBiomassRegion = function(start, end, region) {
   return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa');
 };
 
-Map.addLayer(
+var HighBiomass = function(start,end) {
+  var dwFiltered = dw.filterDate(start, end)
+      .reduce('mean', 16)
+      .select(imageBandNames, class2potential.bandNames())
+      .gt(50);
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa,Filtered')
+};
+
+/*Map.addLayer(
   estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')).updateMask(WCMaskWater).clip(geometry), 
   {min: 50, max: 250, palette: BiomassPalette}, 
   'estBiomass');
+  */
+
+Map.addLayer(
+  HighBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')).updateMask(WCMaskWater).clip(geometry), 
+  {min: 50, max: 250, palette: BiomassPalette}, 
+  'estBiomassFilter');  
   
   
