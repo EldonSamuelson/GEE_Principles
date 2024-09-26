@@ -18,7 +18,7 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
           [-9.6817326131222, 52.06768129414816],
           [-9.6817326131222, 52.33533168933023]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-// V1.3 Hackathon substitutions
+// V1.4 Hackathon substitutions
 /* CHANGELOG
 {
 -Replace
@@ -34,6 +34,7 @@ gez asset (not used)
 {Map.setCenter(-10,52.20,12); // Dingle Peninsula, IE
 }
 - Add WCv200, Gena-EEPalettes
+- Fix script bug on line 128/(528)
 }
 */
 
@@ -545,7 +546,7 @@ var coldest = worldclim.select('tmin').reduce('min', 16).multiply(0.1).rename('t
 
 // Caption of Table 4.1
 var dryMonths = worldclim.map(function(image) {
-  return image.select('prec').multiply(2).lte(image.select('tavg')).rename('dry');
+  return image.select('prec').lte(image.select('tavg').multiply(2).multiply(0.1)).rename('dry');
 });
 var numDry = dryMonths.reduce('sum', 16).rename('dry');
 // Map.addLayer(numDry, {min: 0, max: 12}, 'numDry');
