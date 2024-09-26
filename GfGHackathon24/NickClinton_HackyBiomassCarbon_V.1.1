@@ -19,7 +19,8 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
           [-9.6817326131222, 52.33533168933023]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // V1.3 Hackathon substitutions
-/*
+/* CHANGELOG
+{
 -Replace
 {.fastgaussianblur(500) with .reduceNeighbourhood({
 reducer:ee.Reducer.mean(),
@@ -33,6 +34,7 @@ gez asset (not used)
 {Map.setCenter(-10,52.20,12); // Dingle Peninsula, IE
 }
 - Add WCv200
+}
 */
 
 // Landcover
