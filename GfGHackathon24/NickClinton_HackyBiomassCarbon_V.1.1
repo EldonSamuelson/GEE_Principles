@@ -1141,17 +1141,17 @@ Map.addLayer(HighBiomass.updateMask(HighBiomass.gt(50)), {palette: BiomassPalett
 // questions? emil.cherrington@nasa.gov / eac0021@uah.edu
 
 // Function for extracting biomass statistics from AGB datasets
-function agb_stat(img,res,aoi,SRC) {
+function agb_stat(img,res,geometry) {
 
 var AGB_mean = ee.Number(img.reduceRegion({
-  geometry: aoi.geometry(), reducer: ee.Reducer.mean(), scale: res, maxPixels: 1e18}));
+  geometry: geometry.geometry(), reducer: ee.Reducer.mean(), scale: nominal, maxPixels: 1e18}));
 
 var AGB_tot = ee.Number(img.multiply(ee.Image.pixelArea()).reduceRegion({
-  geometry: aoi.geometry(), reducer: ee.Reducer.sum(), scale: res, maxPixels: 1e18}));
+  geometry: geometry.geometry(), reducer: ee.Reducer.sum(), scale: nominal, maxPixels: 1e18}));
 
 var CO2_tot = AGB_tot.multiply(0.48).multiply(44).divide(12);
 
-print(SRC);
+print('reached here');
 print(AGB_mean, 'Mean tons of AGB / ha.');
 print(AGB_tot, 'total tons of AGB');
 print(CO2_tot, 'total tons of CO2e');}
