@@ -18,7 +18,7 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
           [-9.6817326131222, 52.06768129414816],
           [-9.6817326131222, 52.33533168933023]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-// V1.2 Hackathon substitutions
+// V1.3 Hackathon substitutions
 /*
 -Replace
 {.fastgaussianblur(500) with .reduceNeighbourhood({
@@ -73,7 +73,7 @@ Map.addLayer(WCmosaic, {min:0, max:10, palette:WCdict['.colours']}, 'WorldCover 
 //FILTERING AND MASKING
 // Filter collection to ROI and dates of interest
 // Finally, apply the mask to every image in the collection using .map
-var WCMaskWater = WCmosaic.eq(7);
+var WCMaskWater = WCmosaic.neq(7);
 
 // Biomass -------------------------------------------------------------
 
@@ -773,7 +773,7 @@ var estBiomass = function(start, end) {
   var dwFiltered = dw.filterDate(start, end)
       .reduce('mean', 16)
       .select(imageBandNames, class2potential.bandNames());
-  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa').clip(geometry);
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa');
 };
 
 
@@ -781,10 +781,12 @@ var estBiomassRegion = function(start, end, region) {
   var dwFiltered = dw.filterBounds(region).filterDate(start, end)
       .reduce('mean', 16)
       .select(imageBandNames, class2potential.bandNames());
-  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa').clip(geometry);
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa');
 };
 
 Map.addLayer(
-  estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')), 
+  estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')).updateMask(WCMaskWater).clip(geometry), 
   {min: 50, max: 250}, 
   'estBiomass');
+  
+  
