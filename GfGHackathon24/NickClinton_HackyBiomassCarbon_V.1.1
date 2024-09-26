@@ -18,7 +18,7 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
           [-9.6817326131222, 52.06768129414816],
           [-9.6817326131222, 52.33533168933023]]], null, false);
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-// V1.1 Hackathon substitutions
+// V1.2 Hackathon substitutions
 /*
 -Replace
 {.fastgaussianblur(500) with .reduceNeighbourhood({
@@ -32,7 +32,48 @@ gez asset (not used)
 - Set Center, Clip Geom 
 {Map.setCenter(-10,52.20,12); // Dingle Peninsula, IE
 }
+- Add WCv200
 */
+
+// Landcover
+var WCv200 = ee.ImageCollection("ESA/WorldCover/v200");
+
+var WCdict = {
+  "names": [
+    "Trees",	
+    "Shrubland",
+    "Grassland",
+    "Cropland",
+    "Built-Up",
+    "Barren/Sparse",
+    "Snow/Ice",
+    "Open Water",
+    "Herbaceous Wetland",
+    "Mangroves",
+    "Moss/Lichen"
+  ],
+  ".colours": [
+    '#006400',
+    '#ffbb22',
+    '#ffff4c',
+    '#f096ff',
+    '#fa0000',
+    '#b4b4b4',
+    '#f0f0f0',
+    '#0064c8',
+    '#0096a0',
+    '#00cf75',
+    '#fae6a0'
+  ]};
+
+var WCmosaic = WCv200.mosaic().remap([10,20,30,40,50,60,70,80,90,95,100],[0,1,2,3,4,5,6,7,8,9,10]);
+
+// Add image to the map
+Map.addLayer(WCmosaic, {min:0, max:10, palette:WCdict['.colours']}, 'WorldCover 2021 10m');
+//FILTERING AND MASKING
+// Filter collection to ROI and dates of interest
+// Finally, apply the mask to every image in the collection using .map
+var WCMaskWater = WCmosaic.eq(7);
 
 // Biomass -------------------------------------------------------------
 
@@ -744,6 +785,6 @@ var estBiomassRegion = function(start, end, region) {
 };
 
 Map.addLayer(
-  estBiomass(ee.Date('2023-01-01'), ee.Date('2023-01-31')), 
+  estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')), 
   {min: 50, max: 250}, 
   'estBiomass');
