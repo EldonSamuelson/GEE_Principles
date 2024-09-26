@@ -33,11 +33,12 @@ gez asset (not used)
 - Set Center, Clip Geom 
 {Map.setCenter(-10,52.20,12); // Dingle Peninsula, IE
 }
-- Add WCv200
+- Add WCv200, Gena-EEPalettes
 }
 */
 
 // Landcover
+{
 var WCv200 = ee.ImageCollection("ESA/WorldCover/v200");
 
 var WCdict = {
@@ -76,7 +77,13 @@ Map.addLayer(WCmosaic, {min:0, max:10, palette:WCdict['.colours']}, 'WorldCover 
 // Filter collection to ROI and dates of interest
 // Finally, apply the mask to every image in the collection using .map
 var WCMaskWater = WCmosaic.neq(7);
+}
+// Palettes
+{
+var palettes = require('users/gena/packages:palettes');
+var BiomassPalette = kovesi.linear_green_5_95_c69[7];
 
+}
 // Biomass -------------------------------------------------------------
 
 // "table" is from https://gis.ucla.edu/geodata/dataset/world_regions
