@@ -1135,5 +1135,24 @@ Map.addLayer(
   
 Map.addLayer(HighBiomass.updateMask(HighBiomass.gt(50)), {palette: BiomassPalette}, 'Biomass >50T/Ha');
 
-  
+// Stats
+
+// Example for zonal statistics for estimating biomass for a region of interest
+// questions? emil.cherrington@nasa.gov / eac0021@uah.edu
+
+// Function for extracting biomass statistics from AGB datasets
+function agb_stat(img,res,aoi,SRC) {
+
+var AGB_mean = ee.Number(img.reduceRegion({
+  geometry: aoi.geometry(), reducer: ee.Reducer.mean(), scale: res, maxPixels: 1e18}));
+
+var AGB_tot = ee.Number(img.multiply(ee.Image.pixelArea()).reduceRegion({
+  geometry: aoi.geometry(), reducer: ee.Reducer.sum(), scale: res, maxPixels: 1e18}));
+
+var CO2_tot = AGB_tot.multiply(0.48).multiply(44).divide(12);
+
+print(SRC);
+print(AGB_mean, 'Mean tons of AGB / ha.');
+print(AGB_tot, 'total tons of AGB');
+print(CO2_tot, 'total tons of CO2e');}
   
