@@ -5,6 +5,7 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
     terraclimate = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE"),
     dw = ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
+// V1.0 Original
 // Biomass -------------------------------------------------------------
 
 // "table" is from https://gis.ucla.edu/geodata/dataset/world_regions
