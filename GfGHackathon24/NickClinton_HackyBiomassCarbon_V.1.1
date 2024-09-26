@@ -1130,10 +1130,10 @@ var HighBiomass = estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')).updat
 
 Map.addLayer(
   estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')).updateMask(WCMaskWater).clip(geometry), 
-  {min: 50, max: 250, palette: BiomassPalette}, 
+  {min: 10, max: 250, palette: BiomassPalette}, 
   'estBiomass', false);
   
-Map.addLayer(HighBiomass.updateMask(HighBiomass.gt(25)), {palette: BiomassPalette}, 'Biomass >50T/Ha');
+Map.addLayer(HighBiomass.updateMask(HighBiomass.gt(50)), {palette: BiomassPalette}, 'Biomass >50T/Ha');
 
   
   
