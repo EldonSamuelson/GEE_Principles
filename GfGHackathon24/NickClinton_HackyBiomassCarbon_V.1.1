@@ -1,0 +1,732 @@
+/**** Start of imports. If edited, may not auto-convert in the playground. ****/
+var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
+    table = ee.FeatureCollection("users/nclinton/world_regions"),
+    worldclim = ee.ImageCollection("WORLDCLIM/V1/MONTHLY"),
+    terraclimate = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE"),
+    dw = ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1");
+/***** End of imports. If edited, may not auto-convert in the playground. *****/
+// V1.1 Hackathon substitutions
+/*
+-Replace
+{.fastgaussianblur(500) with .reduceNeighbourhood({
+reducer:ee.Reducer.mean(),
+kernel: ee.Kernel.guassian(200)
+});}
+- Remove
+{
+gez asset (not used)
+}
+*/
+
+// Biomass -------------------------------------------------------------
+
+// "table" is from https://gis.ucla.edu/geodata/dataset/world_regions
+// "gez" is from https://storage.googleapis.com/fao-maps-catalog-data/uuid/2fb209d0-fd34-4e5e-a3d8-a13c241eb61b/resources/gez2010.zip
+
+var proj30 = ee.Projection('EPSG:4326').atScale(30)
+var dsm = alos.select('DSM').mosaic()
+    .setDefaultProjection(proj30);
+
+// These are 25 world regions that need to be translated to
+// IPCC regions: africa, asia insular, asian continental, 
+// north america, south america, americas, europe, new zealand.
+var regions = table.filter(ee.Filter.neq('REGION', 'Antarctica'));
+var regionsList = ee.List(table.aggregate_array('REGION'));
+// print(regionsList)
+// Map.addLayer(regions, {}, 'world_regions', false);
+
+// Helper.  Get all the regions with 'word' in the name.
+var filterWord = function(word) {
+  return regions.filter(ee.Filter.inList({
+    leftField: 'REGION', 
+    rightValue: regionsList.filter(ee.Filter.stringContains({
+      leftField: 'item',
+      rightValue: word
+    }))
+  }));
+};
+
+// This a mapping between IPCC regions and the world_regions table.
+var regionsFeatures = ee.Dictionary({
+  'africa': filterWord('Africa'),
+  'asia_insular': regions.filter(ee.Filter.inList({
+    leftField: 'REGION', 
+    rightValue: ['Southeastern Asia', 'Melanesia', 'Micronesia', 'Polynesia']
+  })), 
+  'asia_continental': ee.FeatureCollection(filterWord('Asia'))
+      .filter(ee.Filter.neq('REGION', 'Southeastern Asia')),
+  'asia': regions.filter(ee.Filter.inList({
+          leftField: 'REGION', 
+          rightValue: ['Melanesia', 'Micronesia', 'Polynesia']
+        })).merge(filterWord('Asia')),
+  'north_america': regions.filter(ee.Filter.eq('REGION', 'Northern America')), 
+  'south_america': regions.filter(ee.Filter.eq('REGION', 'South America')), 
+  'americas': ee.FeatureCollection(filterWord('America'))
+      .merge(regions.filter(ee.Filter.eq('REGION', 'Caribbean'))),
+  'europe': filterWord('Europe'),  
+  'oceania': regions.filter(ee.Filter.eq('REGION', 'Australia/New Zealand')), 
+  'global': regions.filter(ee.Filter.neq('REGION', 'Antarctica'))
+});
+
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('africa')), {color: 'red'}, 'africa', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('asia_insular')), {color: 'orange'}, 'asia insular', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('asia_continental')), {color: 'yellow'}, 'asia continental', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('asia')), {color: 'green'}, 'asia', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('north_america')), {color: 'blue'}, 'north america', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('south_america')), {color: 'cyan'}, 'south america', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('americas')), {color: 'magenta'}, 'americas', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('europe')), {color: 'gray'}, 'europe', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('oceania')), {color: 'black'}, 'oceania', false)
+// Map.addLayer(ee.FeatureCollection(regionsFeatures.get('global')), {color: 'white'}, 'global', false)
+
+
+// Map between region names and images.
+var regionsImages = regionsFeatures.map(function(k, v) {
+  return ee.Image(0).byte().paint(v, 1).rename([k]);
+});
+
+
+// Climate Domains.
+
+// Compute "domain" from monthly temperature.
+// Table 2, http://www.fao.org/3/a-ap861e.pdf
+// Note: WorldClim is based on 1960-1990 data.
+// Note: tropical - subTropical is not dichotomous.
+worldclim = worldclim.map(function(image) { return image.resample('bilinear') })
+var tropical = worldclim
+    .select('tavg')
+    .map(function(image) {
+      return image.multiply(0.1).gt(18)
+    })
+    .reduce('sum', 16)
+    .eq(12)
+    .rename('tavg')
+
+// Number of months >10 C.
+var tempTen = worldclim
+    .select('tavg')
+    .map(function(image) {
+      return image.multiply(0.1).gte(10)
+    })
+    .reduce('sum', 16)
+    .rename('tavg')
+
+var thresholds = ee.Image([8, 4, 0]);
+
+// 0=polar, 1=boreal, 2=temperate, 3=subTropical, 4=tropical
+var domains = tempTen.gt(thresholds).reduce('sum').add(tropical);
+
+var domainsCollection = ee.ImageCollection([
+  domains.eq(0).rename('polar').set('climateDomain', 'polar'),
+  domains.eq(1).rename('boreal').set('climateDomain', 'boreal'),
+  domains.eq(2).rename('temperate').set('climateDomain', 'temperate'),
+  domains.eq(3).rename('subtropical').set('climateDomain', 'subtropical'),
+  domains.eq(4).rename('tropical').set('climateDomain', 'tropical'),
+])
+// Map.addLayer(domains, {min: 0, max: 4}, 'domains', false);
+
+
+// Ecological zones.
+
+// From https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/4_Volume4/19R_V4_Ch04_Forest%20Land.pdf
+// Table 4.7 (updated)
+
+// This is the official release, but is not fine grained,
+// lacks all categories, and does not have the same naming convention.
+// print(gez.aggregate_array('gez_name'))
+// Map.addLayer(gez, {}, 'gez', false) 
+
+// The following is the automated (and more fine-grained) way of generating 
+// ecological zones.
+
+// Coldest month.
+var coldest = worldclim.select('tmin').reduce('min', 16).multiply(0.1).rename('tmin');
+// Map.addLayer(coldest, {}, 'coldest');
+
+// Caption of Table 4.1
+var dryMonths = worldclim.map(function(image) {
+  return image.select('prec').multiply(2).lte(image.select('tavg')).rename('dry');
+});
+var numDry = dryMonths.reduce('sum', 16).rename('dry')
+// Map.addLayer(numDry, {min: 0, max: 12}, 'numDry');
+
+// Total annual precipitation, mm.
+var annualPrecip = worldclim
+    .select('prec')
+    .reduce('sum', 16)
+    .rename('prec')
+
+// Mean annual temperature.
+var mat = worldclim
+    .select('tavg')
+    .reduce('mean', 16)
+    .multiply(0.1)
+    .rename('tavg')
+
+// Total annual potential evapotranspiration, mm.
+var petAnnual = terraclimate.map(function(image) { return image.resample('bilinear') })
+    .select('pet')
+    .filterDate('1960-01-01', '1990-12-31') // Worldclim range.
+    .reduce('sum', 16)
+    .divide(31) // 1991-1960
+    .multiply(0.1) // scaling factor
+    .rename('pet')
+// Map.addLayer(petAnnual, {min: 0}, 'petAnnual', false);
+
+// Ratio of precipitation/PET
+var ratio = annualPrecip.divide(petAnnual);
+// Map.addLayer(ratio, {min: 0, max: 1}, 'PRECIP/PET ratio');
+
+
+// Ecological zones.
+// https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_04_Ch4_Forest_Land.pdf
+// Table 4.1 and/or http://www.fao.org/3/a-ap861e.pdf, table 7.
+
+// For an alternate method (based on actual rainfall), see:
+// https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_03_Ch3_Representation.pdf
+// Figure 3.A.5.2 (unfortunately, that diagram doesn't include sub-tropical)
+
+var tropicalMontane = domains.eq(4).and(dsm.gt(1000)).rename('tropicalMontane');
+var tropicalWet = domains.eq(4).and(numDry.lte(3)).rename('tropicalWet');
+var tropicalMoist = domains.eq(4).and(numDry.gt(3).and(numDry.lte(5))).rename('tropicalMoist');
+var tropicalDry = domains.eq(4).and(numDry.gt(5).and(numDry.lte(8))).rename('tropicalDry');
+var tropicalDesert = domains.eq(4).and(numDry.gt(8)).rename('tropicalDesert');
+var tropicalShrub = domains.eq(4).and(ratio.lt(1)).rename('tropicalShrub');
+
+var subTropicalMontane = domains.eq(3).and(dsm.gt(800).and(dsm.lte(1000))).rename('subTropicalMontane');
+var subTropicalHumid = domains.eq(3).and(numDry.lte(1)).rename('subTropicalHumid'); // "no dry season"
+var subTropicalDesert = domains.eq(3).and(numDry.eq(12)).rename('subTropicalDesert'); // "all months dry"
+// The following two are not mutually exclusive.
+var subTropicalDry = domains.eq(3)
+    .and(numDry.gt(1).and(numDry.lt(12))).rename('subTropicalDry'); // By elimination, "seasonally dry"
+var subTropicalSteppe = domains.eq(3).and(ratio.lt(1)).rename('subTropicalSteppe');
+
+var temperateOceanic = domains.eq(2).and(coldest.gt(0)).rename('temperateOceanic');
+var temperateContinental = domains.eq(2).and(coldest.lte(0)).rename('temperateContinental');
+var temperateSteppe = domains.eq(2).and(ratio.lt(1)).rename('temperateSteppe');
+var temperateDesert = domains.eq(2).and(numDry.eq(12)).rename('temperateDesert'); // "all months dry"
+var temperateMontane = domains.eq(2).and(dsm.gt(800)).rename('temperateMontane');
+
+var borealMontane = domains.eq(1).and(dsm.gt(600)).rename('borealMontane');
+// From diagram 3.A.5.2
+var borealMoist = domains.eq(1).and(ratio.gte(1)).rename('borealMoist');
+var borealDry = domains.eq(1).and(ratio.lt(1)).rename('borealDry');
+
+// No biomass in Polar.
+var polar = ee.Image(0).updateMask(domains.eq(0)).rename('polar');
+
+// print(borealMoist.reduceRegion({
+//   reducer: 'mean', 
+//   geometry: gez.filter(ee.Filter.eq('gez_name', 'Boreal coniferous forest')).geometry(1000),
+//   scale: 30, 
+//   bestEffort: true
+// }))
+// 0.57, so coniferous forest is moist and tundra is dry.
+
+// https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_03_Ch3_Representation.pdf
+// Figure 3.A.5.2 (unfortunately, that diagram doesn't include sub-tropical)
+// For warm vs. cold temperate. Not obvious cold/warm is a complete partition.
+// var warmTemperate = mat.gt(10).and(mat.lte(18));
+// Extend the warm temperate zone a bit.
+var warmTemperate = mat.gt(10).and(tropical.not());
+var coldTemperate = mat.gt(0).and(mat.lte(10));
+var warmTemperateWet = warmTemperate.and(ratio.gte(1)).rename('warmTemperateWet');
+var warmTemperateDry = warmTemperate.and(ratio.lt(1)).rename('warmTemperateDry');
+var coldTemperateWet = coldTemperate.and(ratio.gte(1)).rename('coldTemperateWet');
+var coldTemperateDry = coldTemperate.and(ratio.lt(1)).rename('coldTemperateDry');
+// This does NOT result in a tropical/temperate partition 
+// There are places where mat.gt(18), but not ever month 
+// >18 which is how tropical is defined.
+
+var ecoZonesImage = ee.Image.cat([
+  tropicalMontane, tropicalWet, tropicalMoist, tropicalDry, tropicalDesert, tropicalShrub,
+  subTropicalMontane, subTropicalHumid, subTropicalDesert, subTropicalDry, subTropicalSteppe,
+  temperateOceanic, temperateContinental, temperateSteppe, temperateDesert, temperateMontane,
+  warmTemperateWet, warmTemperateDry, coldTemperateWet, coldTemperateDry,
+  borealMontane, borealMoist, borealDry,
+  polar
+])
+// Map.addLayer(ecoZonesImage, {}, 'ecoZonesImage', false)
+// Map.addLayer(ecoZonesImage.reduce('sum'), {min: 2, max: 5}, 'ecoZonesImage sum', false)
+
+// This is a map between images and ecological zone names.
+var ecoZoneImages = ee.Dictionary({
+  'tropical': ee.Dictionary({
+    'wet': tropicalWet,
+    'moist': tropicalMoist,
+    'dry': tropicalDry,
+    'desert': tropicalDesert,
+    'shrub': tropicalShrub,
+    'montane': tropicalMontane
+  }),
+  'subtropical': ee.Dictionary({
+    'humid': subTropicalHumid,
+    'dry': subTropicalDry,
+    'desert': subTropicalDesert,
+    'steppe': subTropicalSteppe,
+    'montane': subTropicalMontane
+  }),
+  'temperate': ee.Dictionary({
+    'oceanic': temperateOceanic,
+    'continental': temperateContinental,
+    'desert': temperateDesert,
+    'steppe': temperateSteppe,
+    'montane': temperateMontane,
+    // ADDED for grassland mapping based on Figure 3A.5.2
+    'warm_wet': warmTemperateWet,
+    'warm_dry': warmTemperateDry,
+    'cool_wet': coldTemperateWet,
+    'cool_dry': coldTemperateDry
+  }),
+  'boreal': ee.Dictionary({
+    'moist': borealMoist,
+    'dry': borealDry,
+    'montane': borealMontane
+  }),
+  'polar': ee.Dictionary({
+    'zero': polar
+  }),
+});
+
+
+var getFeature = function(climateDomain, zone, region, age, biomass) {
+  return ee.Feature(null, {
+    'climateDomain': climateDomain,
+    'zone': zone,
+    'region': region,
+    'age': age,
+    'biomass': biomass
+  })
+}
+
+// From https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/4_Volume4/19R_V4_Ch04_Forest%20Land.pdf
+// Table 4.7 (updated).  Tonnes dm per ha.
+var biomassTable = ee.FeatureCollection([
+  getFeature('tropical', 'tropical_rainforest', 'africa', 'primary', 404.2),
+  getFeature('tropical', 'tropical_rainforest', 'africa', 'secondaryGt20', 212.9),
+  getFeature('tropical', 'tropical_rainforest', 'africa', 'secondaryLte20', 52.8),
+  getFeature('tropical', 'tropical_rainforest', 'americas', 'primary', 307.1),
+  getFeature('tropical', 'tropical_rainforest', 'americas', 'secondaryGt20', 206.4),
+  getFeature('tropical', 'tropical_rainforest', 'americas', 'secondaryLte20', 75.7),
+  getFeature('tropical', 'tropical_rainforest', 'asia', 'primary', 413.1),
+  getFeature('tropical', 'tropical_rainforest', 'asia', 'secondaryGt20', 131.6),
+  getFeature('tropical', 'tropical_rainforest', 'asia', 'secondaryLte20', 45.6),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'africa', 'primary', 236.6),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'africa', 'secondaryGt20', 72.8),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'africa', 'secondaryLte20', 72.8),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'americas', 'primary', 187.3),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'americas', 'secondaryGt20', 131.0),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'americas', 'secondaryLte20', 55.7),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'asia', 'primary', 67.7),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'asia', 'secondaryGt20', 67.7),
+  getFeature('tropical', 'tropical_moist_deciduous_forest', 'asia', 'secondaryLte20', 67.7),
+  getFeature('tropical', 'tropical_dry_forest', 'africa', 'primary', 69.6),
+  getFeature('tropical', 'tropical_dry_forest', 'africa', 'secondaryGt20', 69.6),
+  getFeature('tropical', 'tropical_dry_forest', 'africa', 'secondaryLte20', 69.6),
+  getFeature('tropical', 'tropical_dry_forest', 'americas', 'primary', 127.5),
+  getFeature('tropical', 'tropical_dry_forest', 'americas', 'secondaryGt20', 118.9),
+  getFeature('tropical', 'tropical_dry_forest', 'americas', 'secondaryLte20', 32.2),
+  getFeature('tropical', 'tropical_dry_forest', 'asia', 'primary', 184.6),
+  getFeature('tropical', 'tropical_dry_forest', 'asia', 'secondaryGt20', 184.6),
+  getFeature('tropical', 'tropical_dry_forest', 'asia', 'secondaryLte20', 184.6),
+  getFeature('tropical', 'tropical_shrublands', 'africa', 'primary', 48.4),
+  getFeature('tropical', 'tropical_shrublands', 'africa', 'secondaryGt20', 48.4),
+  getFeature('tropical', 'tropical_shrublands', 'africa', 'secondaryLte20', 48.4),
+  getFeature('tropical', 'tropical_shrublands', 'americas', 'primary', 71.5),
+  getFeature('tropical', 'tropical_shrublands', 'americas', 'secondaryGt20', 71.5),
+  getFeature('tropical', 'tropical_shrublands', 'americas', 'secondaryLte20', 71.5),
+  getFeature('tropical', 'tropical_shrublands', 'asia', 'primary', 38.3),
+  getFeature('tropical', 'tropical_shrublands', 'asia', 'secondaryGt20', 38.3),
+  getFeature('tropical', 'tropical_shrublands', 'asia', 'secondaryLte20', 38.3),
+  getFeature('tropical', 'tropical_mountain_systems', 'africa', 'primary', 190.0),
+  getFeature('tropical', 'tropical_mountain_systems', 'africa', 'secondaryGt20', 190.0),
+  getFeature('tropical', 'tropical_mountain_systems', 'africa', 'secondaryLte20', 190.0),
+  getFeature('tropical', 'tropical_mountain_systems', 'americas', 'primary', 195.0),
+  getFeature('tropical', 'tropical_mountain_systems', 'americas', 'secondaryGt20', 184.4),
+  getFeature('tropical', 'tropical_mountain_systems', 'americas', 'secondaryLte20', 75.9),
+  getFeature('tropical', 'tropical_mountain_systems', 'asia', 'primary', 433.5),
+  getFeature('tropical', 'tropical_mountain_systems', 'asia', 'secondaryGt20', 66.4),
+  getFeature('tropical', 'tropical_mountain_systems', 'asia', 'secondaryLte20', 66.4),
+  
+  getFeature('subtropical', 'subtropical_humid_forests', 'africa', 'primary', 54.1),
+  getFeature('subtropical', 'subtropical_humid_forests', 'africa', 'secondaryGt20', 54.1),
+  getFeature('subtropical', 'subtropical_humid_forests', 'africa', 'secondaryLte20', 54.1),
+  getFeature('subtropical', 'subtropical_humid_forests', 'americas', 'primary', 84.5),
+  getFeature('subtropical', 'subtropical_humid_forests', 'americas', 'secondaryGt20', 84.5),
+  getFeature('subtropical', 'subtropical_humid_forests', 'americas', 'secondaryLte20', 84.5),
+  getFeature('subtropical', 'subtropical_humid_forests', 'asia', 'primary', 323.0),
+  getFeature('subtropical', 'subtropical_humid_forests', 'asia', 'secondaryGt20', 258.4),
+  getFeature('subtropical', 'subtropical_humid_forests', 'asia', 'secondaryLte20', 258.4),
+  getFeature('subtropical', 'subtropical_dry_forests', 'africa', 'primary', 65.2),
+  getFeature('subtropical', 'subtropical_dry_forests', 'africa', 'secondaryGt20', 65.2),
+  getFeature('subtropical', 'subtropical_dry_forests', 'africa', 'secondaryLte20', 65.2),
+  getFeature('subtropical', 'subtropical_dry_forests', 'americas', 'primary', 115.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'americas', 'secondaryGt20', 115.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'americas', 'secondaryLte20', 115.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'asia', 'primary', 70.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'asia', 'secondaryGt20', 70.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'asia', 'secondaryLte20', 70.9),
+  // ADDED Europe subtropical_dry_forests.  Use Asia. 
+  getFeature('subtropical', 'subtropical_dry_forests', 'europe', 'primary', 70.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'europe', 'secondaryGt20', 70.9),
+  getFeature('subtropical', 'subtropical_dry_forests', 'europe', 'secondaryLte20', 70.9),
+  getFeature('subtropical', 'subtropical_steppe', 'africa', 'primary', 50.5),
+  getFeature('subtropical', 'subtropical_steppe', 'africa', 'secondaryGt20', 50.5),
+  getFeature('subtropical', 'subtropical_steppe', 'africa', 'secondaryLte20', 50.5),
+  getFeature('subtropical', 'subtropical_steppe', 'americas', 'primary', 44.0),
+  getFeature('subtropical', 'subtropical_steppe', 'americas', 'secondaryGt20', 44.0),
+  getFeature('subtropical', 'subtropical_steppe', 'americas', 'secondaryLte20', 44.0),
+  getFeature('subtropical', 'subtropical_steppe', 'asia', 'primary', 41.6),
+  getFeature('subtropical', 'subtropical_steppe', 'asia', 'secondaryGt20', 41.6),
+  getFeature('subtropical', 'subtropical_steppe', 'asia', 'secondaryLte20', 41.6),
+  // ADDED Europe subtropical_steppe.  Use Asia. 
+  getFeature('subtropical', 'subtropical_steppe', 'europe', 'primary', 41.6),
+  getFeature('subtropical', 'subtropical_steppe', 'europe', 'secondaryGt20', 41.6),
+  getFeature('subtropical', 'subtropical_steppe', 'europe', 'secondaryLte20', 41.6),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'africa', 'primary', 35.1),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'africa', 'secondaryGt20', 35.1),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'africa', 'secondaryLte20', 35.1),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'americas', 'primary', 74.6),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'americas', 'secondaryGt20', 74.6),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'americas', 'secondaryLte20', 74.6),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'asia', 'primary', 250.2),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'asia', 'secondaryGt20', 155.2),
+  getFeature('subtropical', 'subtropical_mountain_systems', 'asia', 'secondaryLte20', 155.2),
+  
+  getFeature('temperate', 'mountain', 'asia', 'secondaryGt20', 170.4),
+  getFeature('temperate', 'mountain', 'europe', 'primary', 301.1),
+  getFeature('temperate', 'mountain', 'europe', 'secondaryGt20', 214.7),
+  getFeature('temperate', 'mountain', 'europe', 'secondaryLte20', 27.8),
+  // ??
+  getFeature('temperate', 'mountain', 'americas', 'secondaryGt20', 185.9),
+  getFeature('temperate', 'mountain', 'americas', 'secondaryLte20', 57.9),
+  // ADDED!  
+  // https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_04_Ch4_Forest_Land.pdf
+  // shows 120 for forests >20.  Use that.
+  getFeature('temperate', 'continental', 'asia', 'primary', 120),
+  getFeature('temperate', 'continental', 'asia', 'secondaryGt20', 116.0),
+  getFeature('temperate', 'continental', 'asia', 'secondaryLte20', 90.9),
+  
+  // ADDED temperate continental for Africa.  Same as Asia.
+  getFeature('temperate', 'continental', 'africa', 'primary', 120),
+  getFeature('temperate', 'continental', 'africa', 'secondaryGt20', 116.0),
+  getFeature('temperate', 'continental', 'africa', 'secondaryLte20', 90.9),
+  
+  getFeature('temperate', 'continental', 'europe', 'primary', 332.4),
+  getFeature('temperate', 'continental', 'europe', 'secondaryGt20', 162.0),
+  getFeature('temperate', 'continental', 'europe', 'secondaryLte20', 51.6),
+  // ADDED!  
+  // https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_04_Ch4_Forest_Land.pdf
+  // shows a range for this ecozone (50-200) for forests >20.  So use 200.
+  getFeature('temperate', 'continental', 'americas', 'primary', 200),
+  getFeature('temperate', 'continental', 'americas', 'secondaryGt20', 128.9),
+  getFeature('temperate', 'continental', 'americas', 'secondaryLte20', 46.0),
+  getFeature('temperate', 'oceanic', 'asia', 'primary', 289.8),
+  getFeature('temperate', 'oceanic', 'europe', 'primary', 126.1),
+  getFeature('temperate', 'oceanic', 'europe', 'secondaryGt20', 153.9),
+  getFeature('temperate', 'oceanic', 'europe', 'secondaryLte20', 22.3),
+  getFeature('temperate', 'oceanic', 'oceania', 'primary', 352.7),
+  getFeature('temperate', 'oceanic', 'oceania', 'secondaryGt20', 120.5),
+  getFeature('temperate', 'oceanic', 'oceania', 'secondaryLte20', 57.5),
+  // ADDED.  See:
+  // https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_04_Ch4_Forest_Land.pdf
+  getFeature('temperate', 'oceanic', 'americas', 'primary', 660),
+  getFeature('temperate', 'oceanic', 'americas', 'secondaryGt20', 354.1),
+  getFeature('temperate', 'oceanic', 'americas', 'secondaryLte20', 213.9),
+  getFeature('temperate', 'desert', 'americas', 'secondaryGt20', 44.0),
+  getFeature('temperate', 'desert', 'americas', 'secondaryLte20', 25.6),
+  getFeature('temperate', 'steppe', 'americas', 'secondaryGt20', 118.5),
+  getFeature('temperate', 'steppe', 'americas', 'secondaryLte20', 42.9),
+  
+  
+  // ADDED temperate steppe for Africa.  Same as subtropical steppe for Africa.
+  getFeature('temperate', 'steppe', 'africa', 'primary', 50.5),
+  getFeature('temperate', 'steppe', 'africa', 'secondaryGt20', 50.5),
+  getFeature('temperate', 'steppe', 'africa', 'secondaryLte20', 50.5),
+  
+  
+  getFeature('boreal', 'coniferous', 'americas', 'primary', 62.9),
+  // ADDED.  See:
+  // https://docs.google.com/spreadsheets/d/1vbt0CgCYN0Yr2r3uBxRoBvR9mCrVf7178SCkMOcc6w4/edit?usp=sharing
+  getFeature('boreal', 'coniferous', 'europe', 'primary', 100.9),
+  // ADDED.  See:
+  // https://docs.google.com/spreadsheets/d/1vbt0CgCYN0Yr2r3uBxRoBvR9mCrVf7178SCkMOcc6w4/edit?usp=sharing 
+  getFeature('boreal', 'coniferous', 'asia', 'primary', 62.3),
+  getFeature('boreal', 'tundra_woodland', 'americas', 'primary', 63.7),
+  // ADDED
+  getFeature('boreal', 'tundra_woodland', 'europe', 'primary', 63.7),
+  // ADDED
+  getFeature('boreal', 'tundra_woodland', 'asia', 'primary', 63.7),
+  getFeature('boreal', 'tundra_woodland', 'americas', 'secondaryGt20', 104.2),
+  // ADDED
+  getFeature('boreal', 'mountain', 'americas', 'primary', 50),
+  // ADDED
+  getFeature('boreal', 'mountain', 'americas', 'secondaryGt20', 40),
+  getFeature('boreal', 'mountain', 'americas', 'secondaryLte20', 1.9),
+  // ADDED
+  getFeature('boreal', 'mountain', 'europe', 'primary', 50),
+  // ADDED
+  getFeature('boreal', 'mountain', 'europe', 'secondaryGt20', 40),
+  // ADDED
+  getFeature('boreal', 'mountain', 'europe', 'secondaryLte20', 1.9),
+  // ADDED
+  getFeature('boreal', 'mountain', 'asia', 'primary', 50),
+  // ADDED
+  getFeature('boreal', 'mountain', 'asia', 'secondaryGt20', 40),
+  // ADDED
+  getFeature('boreal', 'mountain', 'asia', 'secondaryLte20', 1.9),
+  
+  // ADDED desert for everything
+  getFeature('tropical', 'desert', 'africa', 'primary', 0),
+  getFeature('tropical', 'desert', 'africa', 'secondaryGt20', 0),
+  getFeature('tropical', 'desert', 'africa', 'secondaryLte20', 0),
+  getFeature('tropical', 'desert', 'americas', 'primary', 0),
+  getFeature('tropical', 'desert', 'americas', 'secondaryGt20', 0),
+  getFeature('tropical', 'desert', 'americas', 'secondaryLte20', 0),
+  getFeature('tropical', 'desert', 'asia', 'primary', 0),
+  getFeature('tropical', 'desert', 'asia', 'secondaryGt20', 0),
+  getFeature('tropical', 'desert', 'asia', 'secondaryLte20', 0),
+  getFeature('tropical', 'desert', 'europe', 'primary', 0),
+  getFeature('tropical', 'desert', 'europe', 'secondaryGt20', 0),
+  getFeature('tropical', 'desert', 'europe', 'secondaryLte20', 0),
+  getFeature('subtropical', 'desert', 'africa', 'primary', 0),
+  getFeature('subtropical', 'desert', 'africa', 'secondaryGt20', 0),
+  getFeature('subtropical', 'desert', 'africa', 'secondaryLte20', 0),
+  getFeature('subtropical', 'desert', 'americas', 'primary', 0),
+  getFeature('subtropical', 'desert', 'americas', 'secondaryGt20', 0),
+  getFeature('subtropical', 'desert', 'americas', 'secondaryLte20', 0),
+  getFeature('subtropical', 'desert', 'asia', 'primary', 0),
+  getFeature('subtropical', 'desert', 'asia', 'secondaryGt20', 0),
+  getFeature('subtropical', 'desert', 'asia', 'secondaryLte20', 0),
+  getFeature('subtropical', 'desert', 'europe', 'primary', 0),
+  getFeature('subtropical', 'desert', 'europe', 'secondaryGt20', 0),
+  getFeature('subtropical', 'desert', 'europe', 'secondaryLte20', 0),
+  getFeature('temperate', 'desert', 'africa', 'primary', 0),
+  getFeature('temperate', 'desert', 'africa', 'secondaryGt20', 0),
+  getFeature('temperate', 'desert', 'africa', 'secondaryLte20', 0),
+  getFeature('temperate', 'desert', 'americas', 'primary', 0),
+  getFeature('temperate', 'desert', 'americas', 'secondaryGt20', 0),
+  getFeature('temperate', 'desert', 'americas', 'secondaryLte20', 0),
+  getFeature('temperate', 'desert', 'asia', 'primary', 0),
+  getFeature('temperate', 'desert', 'asia', 'secondaryGt20', 0),
+  getFeature('temperate', 'desert', 'asia', 'secondaryLte20', 0),
+  getFeature('temperate', 'desert', 'europe', 'primary', 0),
+  getFeature('temperate', 'desert', 'europe', 'secondaryGt20', 0),
+  getFeature('temperate', 'desert', 'europe', 'secondaryLte20', 0),
+])
+
+
+// Map from names in the forest biomass table to general ecozone names.
+var forestZonesToEcoZones = ee.Dictionary({
+  'tropical_rainforest': 'wet',
+  'tropical_moist_deciduous_forest': 'moist',
+  'tropical_dry_forest': 'dry',
+  'tropical_shrublands': 'shrub',
+  'tropical_mountain_systems': 'montane',
+  'subtropical_humid_forests': 'humid',
+  'subtropical_dry_forests': 'dry',
+  'subtropical_steppe': 'steppe',
+  'subtropical_mountain_systems': 'montane',
+  'mountain': 'montane', // Also for boreal.
+  'continental': 'continental',
+  'oceanic': 'oceanic',
+  'desert': 'desert',
+  'steppe': 'steppe',
+  'coniferous': 'moist',
+  'tundra_woodland': 'dry',
+})
+
+var forestCarbon = ee.ImageCollection(domainsCollection.map(function(domainImage) {
+  var domain = domainImage.get('climateDomain')
+  var forestZones = biomassTable.filter(ee.Filter.eq('climateDomain', domain))
+  return ee.ImageCollection(forestZones.map(function(f) {
+    var forestZone = f.get('zone')
+    var ecoZone = forestZonesToEcoZones.get(forestZone)
+    var region = regionsFeatures.get(f.get('region'))
+    var age = f.get('age')
+    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone)
+    var biomassPerHa = f.get('biomass')
+    return domainImage.multiply(ecoZoneImage).multiply(ee.Image.constant(biomassPerHa))
+        .clipToCollection(region)
+        .updateMask(ecoZoneImage)
+        .rename('biomass')
+        .set('age', age)
+        .float()
+  }))
+}).flatten())
+
+// Map.addLayer(forestCarbon.filter(ee.Filter.eq('age', 'primary')).max().reduceNeighborhood({reducer:ee.Reducer.mean(),kernel:ee.Kernel.gaussian(200)}), 
+//     {min: 0, max: 433}, 'primary forest biomass', false)
+
+
+// // Table 4.3.  Default value.
+// // Think of this as potential carbon for forest land cover.
+// var forestCarbon = forestBiomass.select('biomass_min').multiply(0.47)
+//     .rename('carbon_min');
+
+
+// Crop and Grassland tables.  From 2006 report, Table 5.1
+// (Shrub is part of forest, which sucks).
+// These are not regionally stratified.
+var cropTable = ee.FeatureCollection([
+  getFeature('tropical', 'wet', 'global', 'harvest', 50),
+  getFeature('tropical', 'moist', 'global', 'harvest', 21),
+  getFeature('tropical', 'dry', 'global', 'harvest', 9),
+  // ADDED.  Same as "tropical dry".
+  getFeature('tropical', 'shrub', 'global', 'harvest', 9),
+  // "All moisture regimes"
+  getFeature('temperate', 'oceanic', 'global', 'harvest', 63),
+  getFeature('temperate', 'continental', 'global', 'harvest', 63),
+  getFeature('temperate', 'steppe', 'global', 'harvest', 63),
+  getFeature('temperate', 'montane', 'global', 'harvest', 63),
+  // ADDED.  Same as "tropical moist".
+  getFeature('subtropical', 'humid', 'global', 'harvest', 21),
+  // ADDED.  Same as "tropical dry".
+  getFeature('subtropical', 'dry', 'global', 'harvest', 9),
+  // ADDED.  Same as "tropical dry".
+  getFeature('subtropical', 'steppe', 'global', 'harvest', 9),
+  // ADDED boreal.  Same as grassland.
+  getFeature('boreal', 'moist', 'global', 'harvest', 2.7),
+  getFeature('boreal', 'dry', 'global', 'harvest', 1.7),
+  // ADDED.  All desert is zeros.
+  getFeature('tropical', 'desert', 'global', 'harvest', 0),
+  getFeature('subtropical', 'desert', 'global', 'harvest', 0),
+  getFeature('temperate', 'desert', 'global', 'harvest', 0),
+])
+
+
+var cropCarbon = ee.ImageCollection(domainsCollection.map(function(domainImage) {
+  var domain = domainImage.get('climateDomain')
+  var cropZones = cropTable.filter(ee.Filter.eq('climateDomain', domain))
+  return ee.ImageCollection(cropZones.map(function(f) {
+    var ecoZone = f.get('zone')
+    var region = regionsFeatures.get(f.get('region'))
+    var age = f.get('age')
+    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone)
+    var biomassPerHa = f.get('biomass')
+    return domainImage.multiply(ecoZoneImage).multiply(ee.Image.constant(biomassPerHa))
+        .clipToCollection(region)
+        .updateMask(ecoZoneImage)
+        .rename('biomass')
+        .set('age', age)
+        .float()
+  }))
+}).flatten())
+
+// Map.addLayer(cropCarbon.max().reduceNeighborhood({reducer:ee.Reducer.mean(),kernel:ee.Kernel.gaussian(200)}), {min: 0, max: 60}, 'crop biomass', false)
+
+// Table 6.4
+var grassTable = ee.FeatureCollection([
+  getFeature('tropical', 'wet', 'global', 'ungrazed', 6.2),
+  getFeature('tropical', 'moist', 'global', 'ungrazed', 6.2),
+  getFeature('tropical', 'dry', 'global', 'ungrazed', 2.3),
+  // ADDED.  Same as dry.
+  getFeature('tropical', 'shrub', 'global', 'ungrazed', 2.3),
+
+  getFeature('temperate', 'cool_wet', 'global', 'ungrazed', 2.4),
+  getFeature('temperate', 'cool_dry', 'global', 'ungrazed', 1.7),
+  
+  getFeature('temperate', 'warm_wet', 'global', 'ungrazed', 2.7),
+  getFeature('temperate', 'warm_dry', 'global', 'ungrazed', 1.6),
+  // ADDED.  Same as cool_wet.
+  getFeature('temperate', 'continental', 'global', 'ungrazed', 2.4),
+  
+  // ADDED.  Same as tropical.
+  getFeature('subtropical', 'humid', 'global', 'ungrazed', 6.2),
+  getFeature('subtropical', 'dry', 'global', 'ungrazed', 2.3),
+  
+  getFeature('boreal', 'moist', 'global', 'ungrazed', 2.7),
+  getFeature('boreal', 'dry', 'global', 'ungrazed', 1.7),
+  
+  // ADDED.  All desert is zeros.
+  getFeature('tropical', 'desert', 'global', 'ungrazed', 0),
+  getFeature('subtropical', 'desert', 'global', 'ungrazed', 0),
+  getFeature('temperate', 'desert', 'global', 'ungrazed', 0),
+])
+
+
+var grassCarbon = ee.ImageCollection(domainsCollection.map(function(domainImage) {
+  var domain = domainImage.get('climateDomain')
+  var grassZones = grassTable.filter(ee.Filter.eq('climateDomain', domain))
+  return ee.ImageCollection(grassZones.map(function(f) {
+    var ecoZone = f.get('zone')
+    var region = regionsFeatures.get(f.get('region'))
+    var age = f.get('age')
+    var ecoZoneImage = ee.Dictionary(ecoZoneImages.get(domain)).get(ecoZone)
+    var biomassPerHa = f.get('biomass')
+    return domainImage.multiply(ecoZoneImage).multiply(ee.Image.constant(biomassPerHa))
+        .clipToCollection(region)
+        .updateMask(ecoZoneImage)
+        .rename('biomass')
+        .set('age', age)
+        .float()
+  }))
+}).flatten())
+
+// Map.addLayer(grassCarbon.max().reduceNeighborhood({reducer:ee.Reducer.mean(),kernel:ee.Kernel.gaussian(200)}), {min: 0, max: 6}, 'grass biomass', false)
+
+// Shrub, scrub, chaparral
+// https://www.jstor.org/stable/44841117
+// Tonnes per ha.
+var calShrubMixed = 34.61
+var calShrubChamise = 21.14
+var calShrubSage = 15.83
+// https://www.sciencedirect.com/science/article/abs/pii/S0961953417302325
+var iberiaLow = 3
+var iberiaHigh = 16
+// Placeholder.  Somewhat higher than grass, lower than the highest crops.
+var shrubCarbon = 15
+
+
+var class2potential = ee.Image.cat([
+  ee.Image(0).rename('water'),
+  forestCarbon.max().reduceNeighborhood({
+		reducer:ee.Reducer.mean(),
+		kernel:ee.Kernel.gaussian(200)
+}).rename('trees'),
+  grassCarbon.max().reduceNeighborhood({
+		reducer:ee.Reducer.mean(),
+		kernel:ee.Kernel.gaussian(200)
+}).rename('grass'),
+  ee.Image(0).rename('flooded_vegetation'),
+  cropCarbon.max().reduceNeighborhood({
+		reducer:ee.Reducer.mean(),
+		kernel:ee.Kernel.gaussian(200)
+}).rename('crops'),
+  ee.Image(shrubCarbon).rename('shrub_and_scrub'),
+  ee.Image(0).rename('built'),
+  ee.Image(0).rename('bare'),
+  ee.Image(0).rename('snow_and_ice'),
+])
+
+var imageBandNames = class2potential.bandNames().map(function(s) {
+  return ee.String(s).cat('_mean')
+})
+
+
+var potentialCarbon = function(image) {
+  return class2potential
+      .multiply(image)
+      .reduce('sum')
+}
+
+
+var estBiomass = function(start, end) {
+  var dwFiltered = dw.filterDate(start, end)
+      .reduce('mean', 16)
+      .select(imageBandNames, class2potential.bandNames())
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa')
+}
+
+
+var estBiomassRegion = function(start, end, region) {
+  var dwFiltered = dw.filterBounds(region).filterDate(start, end)
+      .reduce('mean', 16)
+      .select(imageBandNames, class2potential.bandNames())
+  return ee.Image(potentialCarbon(dwFiltered)).rename('estBiomassTonsPerHa')
+}
+
+Map.addLayer(
+  estBiomass(ee.Date('2023-01-01'), ee.Date('2023-12-31')), 
+  {min: 50, max: 250}, 
+  'estBiomass')
