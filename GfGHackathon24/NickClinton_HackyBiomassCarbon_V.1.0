@@ -6,6 +6,8 @@ var alos = ee.ImageCollection("JAXA/ALOS/AW3D30/V3_2"),
     dw = ee.ImageCollection("GOOGLE/DYNAMICWORLD/V1");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // V1.0 Original
+// Post Hackathon Update: https://code.earthengine.google.com/b20080c03161720e32d41341def5e485
+// (goo.gle/hacky_biomass)
 // Biomass -------------------------------------------------------------
 
 // "table" is from https://gis.ucla.edu/geodata/dataset/world_regions
