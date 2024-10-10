@@ -121,7 +121,7 @@ print('List of result with columns',timeSeries);
 // need to filter the FC list so that null bands are removed.
 timeSeries.filter(ee.Filter.listContains("properties", "IMERG_precipCal_mm"))
 var Imagesize2 = timeSeries.size();
-
+makes an error so you look here
 print ('No. of Elements after Filtering',Imagesize2);
 
 // convert the output to a feature collection and flatten
