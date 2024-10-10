@@ -29,8 +29,9 @@ var Catchment = Blackwater;
 var scale = 10000;
 
 // set start and end date for time series to export
-var startDate = ee.Date("2014-01-01");
-var endDate = ee.Date("2024-10-09");
+// NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data availability.
+var startDate = ee.Date("2024-01-01");
+var endDate = ee.Date("2024-10-07");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
 
@@ -57,6 +58,8 @@ function dateMetReduction(i){
     .select(['temperature_2m'],['ERA5L_temp2m_C'])
     .mean()
     /*.subtract(273.15)*/;
+    // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
+    // Occurs when the band has no data after a specific end date.
     
   // get GLDAS temp in C for the day
   var GLDAStemp = gldas
@@ -104,10 +107,12 @@ function dateMetReduction(i){
   return result;
 }
 
+
 // apply the function to calculate basin averages for each date from start to end
 var timeSeries = ee.List.sequence(0, dateDiff).map(dateMetReduction);
 
 print('List of result with columns',timeSeries);
+
 
 // convert the output to a feature collection and flatten
 // FeatureCollection exports need a geometry so get the 
@@ -115,7 +120,6 @@ print('List of result with columns',timeSeries);
 timeSeries = ee.FeatureCollection(timeSeries).flatten().map(function(feature){
   return feature.centroid().copyProperties(feature);
 });
-
 
 // run the export to GDrive for all catchments!
 Export.table.toDrive({
