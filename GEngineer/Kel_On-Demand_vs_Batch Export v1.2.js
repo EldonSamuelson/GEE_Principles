@@ -29,8 +29,9 @@ var Catchment = Blackwater;
 var scale = 10000;
 
 // set start and end date for time series to export
-// NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data availability.
-var startDate = ee.Date("2024-01-01");
+// NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data 
+//        availability.
+var startDate = ee.Date("2024-10-01");
 var endDate = ee.Date("2024-10-07");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
@@ -59,7 +60,7 @@ function dateMetReduction(i){
     .mean()
     /*.subtract(273.15)*/;
     // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
-    // Occurs when the band has no data after a specific end date.
+    //        Occurs when the band has no data after a specific end date.
     
   // get GLDAS temp in C for the day
   var GLDAStemp = gldas
@@ -96,9 +97,11 @@ function dateMetReduction(i){
   var result = forcingImg.reduceRegions({
     collection: Catchment,
     reducer: ee.Reducer.mean(),
+    // NOTE: When the forcingImg has no bands (endDate>Data available date, 
+    //       it creates a 'mean' band instead that has 0 value
     scale: scale
   });
-  // NOTE: this will not perform well if grouping catchments that are very far each other. eg Thames and Mekong
+  // NOTE: this will not perform well if grouping catchments that are very far from each other. eg Thames and Mekong
   //       but this works great for multiple basins that are grouped
   
   // if the output is a collection then add the date information to it
@@ -107,12 +110,19 @@ function dateMetReduction(i){
   return result;
 }
 
-
 // apply the function to calculate basin averages for each date from start to end
 var timeSeries = ee.List.sequence(0, dateDiff).map(dateMetReduction);
 
-print('List of result with columns',timeSeries);
+var Imagesize = timeSeries.size();
 
+print ('No. of Elements',Imagesize);
+
+print('List of result with columns',timeSeries);
+// need to filter the FC list so that null bands are removed.
+timeSeries.filter(ee.Filter.listContains("properties", "IMERG_precipCal_mm"))
+var Imagesize2 = timeSeries.size();
+
+print ('No. of Elements after Filtering',Imagesize2);
 
 // convert the output to a feature collection and flatten
 // FeatureCollection exports need a geometry so get the 
