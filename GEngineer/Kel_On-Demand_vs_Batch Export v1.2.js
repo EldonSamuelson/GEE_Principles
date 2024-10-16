@@ -9,7 +9,7 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.2
 // Source: Kel Markert (GEE)
-// Modified by Séamus O'D 10/10/2024
+// Modified by Séamus O'D 16/10/2024
 
 // load in basin collection
 // can use features from GEE or imported assets
@@ -58,7 +58,7 @@ function dateMetReduction(i){
     .filterDate(t1,t2)
     .select(['temperature_2m'],['ERA5L_temp2m_C'])
     .mean()
-    /*.subtract(273.15)*/;
+    .subtract(273.15);
     // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
     //        Occurs when the band has no data after a specific end date.
     
