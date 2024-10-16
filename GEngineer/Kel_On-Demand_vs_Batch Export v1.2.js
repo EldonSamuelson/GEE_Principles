@@ -59,6 +59,8 @@ function dateMetReduction(i){
     .select(['temperature_2m'],['ERA5L_temp2m_C'])
     .mean()
     .subtract(273.15);
+    // NOTE - You cannot round these as it can only be done client side (i.e. Not in Functions). 
+    //        Could be done externally (in BigQuery/Google Cloud Data Table)
 
   // get GLDAS temp in C for the day
   var GLDAStemp = gldas
