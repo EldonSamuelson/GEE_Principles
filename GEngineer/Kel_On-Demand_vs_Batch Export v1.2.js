@@ -59,15 +59,15 @@ function dateMetReduction(i){
     .select(['temperature_2m'],['ERA5L_temp2m_C'])
     .mean()
     .subtract(273.15);
-    // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
-    //        Occurs when the band has no data after a specific end date.
-    
+
   // get GLDAS temp in C for the day
   var GLDAStemp = gldas
     .filterDate(t1,t2)
     .select(['Tair_f_inst'],['GLDAS_airT_C'])
     .mean()
     /*.subtract(273.15)*/;
+    // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
+    //        Occurs when the band has no data after a specific end date.
     
   // get the accumulated precip for a day from IMERG
   var IMERGprecip = imerg
