@@ -136,7 +136,7 @@ timeSeries = ee.FeatureCollection(timeSeries).flatten().map(function(feature){
 // run the export to GDrive for all catchments!
 Export.table.toDrive({
   collection: timeSeries,
-  selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal_mm','ERA5L_temp2m_C', 'GLDAS_airT_C'],
+  selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal_mm','ERA5L_temp2m_C'/*, 'GLDAS_airT_C'*/],
   description: "TS_exportToDrive",
   fileFormat: 'CSV'
 });
