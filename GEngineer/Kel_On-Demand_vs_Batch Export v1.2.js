@@ -31,8 +31,8 @@ var scale = 10000;
 // set start and end date for time series to export
 // NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data 
 //        availability.
-var startDate = ee.Date("2024-10-01");
-var endDate = ee.Date("2024-10-07");
+var startDate = ee.Date("2010-01-01");
+var endDate = ee.Date("2024-09-30");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
 
@@ -63,11 +63,11 @@ function dateMetReduction(i){
     //        Could be done externally (in BigQuery/Google Cloud Data Table)
 
   // get GLDAS temp in C for the day
-  var GLDAStemp = gldas
+  /*var GLDAStemp = gldas
     .filterDate(t1,t2)
     .select(['Tair_f_inst'],['GLDAS_airT_C'])
     .mean()
-    /*.subtract(273.15)*/;
+    .subtract(273.15);*/
     // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
     //        Occurs when the band has no data after a specific end date.
     
@@ -81,7 +81,7 @@ function dateMetReduction(i){
   // add additional met/image variables as needed
   var forcingImg = ee.Image.cat([
     ERAtemp,
-    GLDAStemp,
+    /*GLDAStemp,*/
     IMERGprecip
   ]);
   
@@ -121,7 +121,7 @@ print ('No. of Elements',Imagesize);
 
 print('List of result with columns',timeSeries);
 // need to filter the FC list so that null bands are removed.
-timeSeries.filter(ee.Filter.listContains("properties", "IMERG_precipCal_mm"))
+timeSeries.filter(ee.Filter.listContains("properties", "IMERG_precipCal_mm"));
 var Imagesize2 = timeSeries.size();
 //makes an error so you look here
 print ('No. of Elements after Filtering',Imagesize2);
@@ -154,6 +154,7 @@ Export.table.toBigQuery({
 */
 // This is just to show that it will timeout after 5 minutes/5000 elements
 // This is the 'Active/On-Demand' side of GEE.
+print('timeSeries Limited',timeSeries.limit(4999));
 print('Timeseries Fails', timeSeries);
 
 Map.centerObject(Catchment, 8);
