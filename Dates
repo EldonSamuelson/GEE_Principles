@@ -1,0 +1,34 @@
+// TODAY'S DATE
+var Today = ee.Date(Date.now());
+print('Todays Date with time', Today);// This is a Date Object
+
+print ('Failed Date', ee.Date.parse('YYYY-MM-dd',Today)); // This will fail as parsing requires strings
+
+// DATE AS FORMATTED STRING
+var Today_ISO8601 = Today.format('YYYY-MM-dd');
+print ('Today as String', Today_ISO8601);
+// You can convert it back with .parse, but generally don't do this as there can be errors like below
+print ('Todays String Date back into a Date Object [INCORRECTLY]', ee.Date.parse('Y-M-D',Today_ISO8601));
+// Instead be explicit FIRST with ee.Date
+// The Formatted String Date back as a Date Object (which loses the time)
+print ('Todays String Date as a Date Object [CORRECT]', ee.Date(Today_ISO8601)); 
+
+// DAY OF YEAR
+print('Day of the Year, Today', Today.format('DDD'),Today.format('DD'), Today.format('D')); 
+// Note this will do this based on Capital D, not how many d's there are.
+
+// ADVANCING/BEHIND A DATE
+var Today_MinusOne = Today.advance(-1, 'day');
+var Today_PlusOne = Today.advance(1, 'day');
+print ('Yesterday', Today_MinusOne.format('YYYY-MM-dd'));
+print ('Today', Today_ISO8601);
+print ('Tomorrow', Today_PlusOne.format('YYYY-MM-dd'));
+
+// START/END DATE
+//    Format: 'YYYY-MM-DD', include the quotes. This for the time series range.
+var START_DATE = ee.Date('2024-06-01');
+var FARFUTURE_END_DATE = ee.Date('2025-01-01');
+var TODAY_END_DATE = ee.Date(Today); // It's already a date but we're being cautious
+var TODAY_END_DATE2 = ee.Date(Today_ISO8601); // For this exact reason! (see line 13)
+
+
