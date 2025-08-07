@@ -1,11 +1,15 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     gldas = ee.ImageCollection("NASA/GLDAS/V021/NOAH/G025/T3H"),
+    imerg = ee.ImageCollection("NASA/GPM_L3/IMERG_V07"),
     ThamesWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Thames_WS_Dissolved"),
     ColneWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Colne_WS_Dissolved"),
     KennetWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_KLE_WS_Dissolved"),
     BlackwaterWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Blackwater_WS_Dissolved"),
-    imerg = ee.ImageCollection("NASA/GPM_L3/IMERG_V07");
+    Wye_Lower = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Lower_RSC_Dissolved_DB"),
+    Wye_Lugg = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Lugg_RSC_Dissolved_DB"),
+    Wye_Upper = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Upper_RSC_Dissolved_DB"),
+    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.2
 // Source: Kel Markert (GEE)
@@ -13,16 +17,22 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 
 // load in basin collection
 // can use features from GEE or imported assets
-
+// UK
 var Thames = ThamesWS;
 var Colne = ColneWS;
 var Kennet = KennetWS;
 var Blackwater = BlackwaterWS;
+var Wye_Up = Wye_Upper;
+var Lugg = Wye_Lugg;
+var Wye_Low = Wye_Lower;
+// EU
+var Notranskja = NotranskjaWS;
+
 // Shapefiles NEED to have all required columns (selectors) to function. 
 // Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
 // a shapefile doesn't have those columns
 
-var Catchment = Blackwater;
+var Catchment = Wye_Up;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
@@ -32,7 +42,7 @@ var scale = 10000;
 // NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data 
 //        availability.
 var startDate = ee.Date("2010-01-01");
-var endDate = ee.Date("2024-09-30");
+var endDate = ee.Date("2025-07-21");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
 
