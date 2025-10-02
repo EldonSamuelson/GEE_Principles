@@ -42,14 +42,13 @@ var scale = 10000;
 // NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data 
 //        availability.
 var startDate = ee.Date("2010-01-01");
-// Get the date of the last image of the slowest Collection
-// NOTE - For whatever reason, GLDAS and IMERG collections don't work with this even though they have 
-//        time elements
-var dateAgg_ERA5 = era5.aggregate_array('system:time_start');
-var lastDate_ERA5 = ee.Date(dateAgg_ERA5.reduce(ee.Reducer.max()));
-var endDate = lastDate_ERA5;
+// Get the date of the last image of the fastest Collection
+// replace imerg with gldas to do the slowest updated Collection (to remove backfilled -9999 values)
+var dateAgg_imerg = imerg.aggregate_array('system:time_start');
+var lastDate_imerg = ee.Date(dateAgg_imerg.reduce(ee.Reducer.max()));
+var endDate = lastDate_imerg;
 // Print it to console to see what it is
-print('Last available date for ERA-5 Land:', endDate);
+print('Last available date for Precipitation:', endDate);
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
 
@@ -71,28 +70,38 @@ function dateMetReduction(i){
   var t2 = t1.advance(1, "day");
   
   // get the ERA5 temp in C for the day
-  var ERAtemp = era5
-    .filterDate(t1,t2)
-    .select(['temperature_2m'],['ERA5L_temp2m_C'])
-    .mean()
-    .subtract(273.15);
-    // NOTE - You cannot round these as it can only be done client side (i.e. Not in Functions). 
+  var era5Filtered = era5.filterDate(t1, t2);
+  // if there's no data for a particular date, it adds -9999 (cannot use NULL)
+  var ERAtemp = ee.Image(
+    ee.Algorithms.If(
+      era5Filtered.size().gt(0),
+      era5Filtered.select(['temperature_2m'], ['ERA5L_temp2m_C'])
+        .mean()
+        .subtract(273.15),
+      ee.Image.constant(-9999).rename('ERA5L_temp2m_C')
+    )
+  );
+    // NOTE - You cannot round these numbers as it can only be done client side (i.e. Not in Functions). 
     //        Could be done externally (in BigQuery/Google Cloud Data Table)
 
-  // get GLDAS temp in C for the day
-  /*var GLDAStemp = gldas
-    .filterDate(t1,t2)
-    .select(['Tair_f_inst'],['GLDAS_airT_C'])
-    .mean()
-    .subtract(273.15);*/
-    // NOTE - 'Image.subtract: If one image has no bands, the other must also have no bands. Got 0 and 1.'
-    //        Occurs when the band has no data after a specific end date.
-    
+  // get GLDAS temp in C for the day (a backup to ERA5L)
+  /*
+  var GLDAStemp = ee.Image(
+    ee.Algorithms.If(
+      era5Filtered.size().gt(0),
+      era5Filtered.select(['Tair_f_inst'],['GLDAS_airT_C'])
+        .mean()
+        .subtract(273.15),
+      ee.Image.constant(-9999).rename('GLDAS_airT_C')
+    )
+  );
+  */
+  
   // get the accumulated precip for a day from IMERG
   var IMERGprecip = imerg
     .filterDate(t1,t2)
     .select(['precipitation'],['IMERG_precipCal_mm'])
-    .mean();
+    .sum();
   
   // combine the meterological data into one image
   // add additional met/image variables as needed
@@ -134,14 +143,11 @@ var timeSeries = ee.List.sequence(0, dateDiff).map(dateMetReduction);
 
 var Imagesize = timeSeries.size();
 print ('No. of Elements',Imagesize);
-
-print('List of result with columns',timeSeries);
-
 // need to filter the FC list so that null bands are removed.
 timeSeries.filter(ee.Filter.listContains("properties", "IMERG_precipCal_mm"));
 var Imagesize2 = timeSeries.size();
-//makes an error so you look here
 print ('No. of Elements after Filtering',Imagesize2);
+print('List of result with columns',timeSeries);
 
 // convert the output to a feature collection and flatten
 // FeatureCollection exports need a geometry so get the 
@@ -179,9 +185,10 @@ Export.table.toBigQuery({
 });
 */
 
-// This is just to show that it will timeout after 5 minutes/5000 elements
 // This is the 'Active/On-Demand' side of GEE.
-print('timeSeries (for Review)',timeSeries.limit(4999));
+// review the latest 100 days of data
+print('timeSeries (for Review)',timeSeries.limit(100,'Date_8601',false));
+// This is just to show that it will timeout after 5 minutes/5000 elements
 //print('Timeseries Fails', timeSeries);
 
 
