@@ -9,17 +9,15 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     Wye_Lower = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Lower_RSC_Dissolved_DB"),
     Wye_Lugg = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Lugg_RSC_Dissolved_DB"),
     Wye_Upper = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Upper_RSC_Dissolved_DB"),
-    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved"),
-    imerg2 = ee.ImageCollection("NASA/GPM_L3/IMERG_V07");
+    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.3
 // Source: Kel Markert (GEE)
 // Modified by Séamus O'D 02/10/2025
 
-// load in basin collection
-// can use features from GEE or imported assets
+// Load in basin collection
+// Can use features from GEE or imported assets
 // UK
-
 var Thames = ThamesWS;
 var Colne = ColneWS;
 var Kennet = KennetWS;
