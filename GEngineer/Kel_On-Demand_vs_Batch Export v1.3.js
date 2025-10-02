@@ -103,7 +103,7 @@ function dateMetReduction(i){
     .select(['precipitation'],['IMERG_precipCal_mm'])
     .sum();
   
-  // combine the meterological data into one image
+  // combine the meteorological  data into one image
   // add additional met/image variables as needed
   var forcingImg = ee.Image.cat([
     ERAtemp,
