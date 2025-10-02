@@ -170,7 +170,7 @@ Export.table.toDrive({
   selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal_mm','ERA5L_temp2m_C'/*, 'GLDAS_airT_C'*/],
   description: "CatchMet_PERSIST",
   fileNamePrefix: "IDENT_Catchment_",
-  fileFormat: 'CSV'
+  fileFormat: 'CSV' //can be changed to ‘GeoJSON’
 });
 
 // BiqQuery example, for exporting into Google Cloud.
