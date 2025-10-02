@@ -19,7 +19,7 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 // Can use features from GEE or imported assets
 // UK
 var Thames = ThamesWS;
-var Colne = ColneWS;
+var Colne = ColneWS; // good for short tests, takes 3 min to produce data.
 var Kennet = KennetWS;
 var Blackwater = BlackwaterWS;
 var Wye_Up = Wye_Upper;
@@ -32,7 +32,7 @@ var Notranskja = NotranskjaWS;
 // Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
 // a shapefile doesn't have those columns
 
-var Catchment = Notranskja;
+var Catchment = Colne;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
@@ -42,20 +42,16 @@ var scale = 10000;
 // NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data 
 //        availability.
 var startDate = ee.Date("2010-01-01");
-var endDate = ee.Date("2025-09-22");
-// calculate how many time steps to iterate over
-var dateDiff = endDate.difference(startDate, "day");
-
 // Get the date of the last image of the slowest Collection
 // NOTE - For whatever reason, GLDAS and IMERG collections don't work with this even though they have 
 //        time elements
-var lastCollect_ERA5 = era5.sort('system:time_start', false).first();
-var lastDate_ERA5 = ee.Date(lastCollect_ERA5.get('system:time_start'));
-
+var dateAgg_ERA5 = era5.aggregate_array('system:time_start');
+var lastDate_ERA5 = ee.Date(dateAgg_ERA5.reduce(ee.Reducer.max()));
+var endDate = lastDate_ERA5;
 // Print it to console to see what it is
-print('Last available date for ERA-5 Land:', lastDate_ERA5.format('YYYY-MM-dd'));
-print('Last available date for GLDAS:', lastCollect_GLDAS);
-print('Last available date for IMERG:', lastCollect_IMERG);
+print('Last available date for ERA-5 Land:', endDate);
+// calculate how many time steps to iterate over
+var dateDiff = endDate.difference(startDate, "day");
 
 // function to add date information to the reduction results
 // only for use with FeatureCollection result from `reduceRegions`
@@ -137,10 +133,10 @@ function dateMetReduction(i){
 var timeSeries = ee.List.sequence(0, dateDiff).map(dateMetReduction);
 
 var Imagesize = timeSeries.size();
-
 print ('No. of Elements',Imagesize);
 
 print('List of result with columns',timeSeries);
+
 // need to filter the FC list so that null bands are removed.
 timeSeries.filter(ee.Filter.listContains("properties", "IMERG_precipCal_mm"));
 var Imagesize2 = timeSeries.size();
@@ -154,30 +150,43 @@ timeSeries = ee.FeatureCollection(timeSeries).flatten().map(function(feature){
   return feature.centroid().copyProperties(feature);
 });
 
+/*
+// get the catchment name for the export details
+// NOTE - This works, but not when entered into the description for Export
+var Catch = Catchment.first();
+var Catch2 = ee.String(Catch.get("Catchment"));
+print(Catch2)
+*/
+
 // run the export to GDrive for all catchments!
 Export.table.toDrive({
   collection: timeSeries,
   selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal_mm','ERA5L_temp2m_C'/*, 'GLDAS_airT_C'*/],
-  description: "IDENT_Catchment",
+  description: "Catchment Meteorology for PERSIST",
+  fileName: "IDENT_Catchment_",
   fileFormat: 'CSV'
 });
 
 // BiqQuery example, for exporting into Google Cloud.
-// can also export to Drive, CloudStorage, etc.
+// can also export to CloudStorage, etc.
 // This is the 'Dormant/Batch-Export' side of GEE
 // Batch Export Tasks can run up to 7 days, and are limited only by storage capacity or the BigQuery costs
 /*
 Export.table.toBigQuery({
   collection: timeSeries, 
-  description: "thames_timeseries_export", 
+  description: "timeseries_export", 
   table: 'my-project.ee_bq_demo.watershed_timeseries'
 });
 */
+
 // This is just to show that it will timeout after 5 minutes/5000 elements
 // This is the 'Active/On-Demand' side of GEE.
-print('timeSeries Limited',timeSeries.limit(4999));
-print('Timeseries Fails', timeSeries);
+print('timeSeries (for Review)',timeSeries.limit(4999));
+//print('Timeseries Fails', timeSeries);
 
+
+// Catchment Visualisation
+// Not required when fully automated, this is to confirm a Catchment shapefile has loaded in correctly
 Map.centerObject(Catchment, 8);
 Map.addLayer(Catchment.draw({color: 'blue', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Selected Catchment');
 Map.addLayer(Thames.draw({color: '006600', strokeWidth: 2}), {"opacity":0.55,"gamma":0.1}, 'Thames',false);
