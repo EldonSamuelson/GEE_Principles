@@ -9,7 +9,8 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     Wye_Lower = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Lower_RSC_Dissolved_DB"),
     Wye_Lugg = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Lugg_RSC_Dissolved_DB"),
     Wye_Upper = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Wye_Upper_RSC_Dissolved_DB"),
-    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved");
+    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved"),
+    imerg2 = ee.ImageCollection("NASA/GPM_L3/IMERG_V07");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.3
 // Source: Kel Markert (GEE)
@@ -18,6 +19,7 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 // load in basin collection
 // can use features from GEE or imported assets
 // UK
+
 var Thames = ThamesWS;
 var Colne = ColneWS;
 var Kennet = KennetWS;
@@ -45,6 +47,17 @@ var startDate = ee.Date("2010-01-01");
 var endDate = ee.Date("2025-09-22");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
+
+// Get the date of the last image of the slowest Collection
+// NOTE - For whatever reason, GLDAS and IMERG collections don't work with this even though they have 
+//        time elements
+var lastCollect_ERA5 = era5.sort('system:time_start', false).first();
+var lastDate_ERA5 = ee.Date(lastCollect_ERA5.get('system:time_start'));
+
+// Print it to console to see what it is
+print('Last available date for ERA-5 Land:', lastDate_ERA5.format('YYYY-MM-dd'));
+print('Last available date for GLDAS:', lastCollect_GLDAS);
+print('Last available date for IMERG:', lastCollect_IMERG);
 
 // function to add date information to the reduction results
 // only for use with FeatureCollection result from `reduceRegions`
