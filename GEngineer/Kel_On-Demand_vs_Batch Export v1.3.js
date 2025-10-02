@@ -92,7 +92,7 @@ function dateMetReduction(i){
   var IMERGprecip = imerg
     .filterDate(t1,t2)
     .select(['precipitation'],['IMERG_precipCal_mm'])
-    .sum();
+    .mean();
   
   // combine the meterological data into one image
   // add additional met/image variables as needed
@@ -162,8 +162,8 @@ print(Catch2)
 Export.table.toDrive({
   collection: timeSeries,
   selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal_mm','ERA5L_temp2m_C'/*, 'GLDAS_airT_C'*/],
-  description: "Catchment Meteorology for PERSIST",
-  fileName: "IDENT_Catchment_",
+  description: "CatchMet_PERSIST",
+  fileNamePrefix: "IDENT_Catchment_",
   fileFormat: 'CSV'
 });
 
