@@ -32,7 +32,7 @@ var Notranskja = NotranskjaWS;
 // Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
 // a shapefile doesn't have those columns
 
-var Catchment = Wye_Up;
+var Catchment = ColneWS;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
@@ -42,7 +42,7 @@ var scale = 10000;
 // NOTE - 'Image.reduceRegions: Image has no bands.' occurs if the end date is beyond the available data 
 //        availability.
 var startDate = ee.Date("2010-01-01");
-var endDate = ee.Date("2025-07-21");
+var endDate = ee.Date("2025-09-22");
 // calculate how many time steps to iterate over
 var dateDiff = endDate.difference(startDate, "day");
 
@@ -148,7 +148,7 @@ Export.table.toDrive({
   collection: timeSeries,
   selectors: ['GR_ID','C_ID','Catchment','Date_8601', 'IMERG_precipCal_mm','ERA5L_temp2m_C'/*, 'GLDAS_airT_C'*/],
   description: "TS_exportToDrive",
-  fileFormat: 'CSV'
+  fileFormat: 'GeoJSON'
 });
 
 // BiqQuery example, for exporting into Google Cloud.
