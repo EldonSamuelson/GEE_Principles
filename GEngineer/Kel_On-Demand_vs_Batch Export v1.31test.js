@@ -110,6 +110,8 @@ function dateMetReduction(i){
   // get the ERA5 temp in C for the day
   var IMERGFiltered = imerg.filterDate(t1, t2);
   // get the accumulated precip for a day from IMERG
+  // The idea is that the 30-min 0 values are filtered out to create a 'real' average,
+  // then a day with truly no rain will still return a 0 to be added afterwards.
   var IMERGprecip = ee.Image(
     ee.Algorithms.If(
       IMERGFiltered.size().gt(0),
