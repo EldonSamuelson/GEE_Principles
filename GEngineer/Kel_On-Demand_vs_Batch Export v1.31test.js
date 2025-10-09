@@ -116,6 +116,7 @@ function dateMetReduction(i){
     ee.Algorithms.If(
       IMERGFiltered.size().gt(0),
       IMERGFiltered.select(['precipitation'],['IMERG_precipCal_mm'])
+        .gt(0)
         .mean(),
       ee.Image.constant(0).rename('IMERG_precipCal_mm')
     )
