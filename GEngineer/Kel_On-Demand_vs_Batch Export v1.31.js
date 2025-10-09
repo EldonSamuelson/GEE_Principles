@@ -96,12 +96,13 @@ function dateMetReduction(i){
 
   // get GLDAS temp in C for the day (a backup to ERA5L)
   /*
+  // get the ERA5 temp in C for the day
+  var GLDASFiltered = GLDAS.filterDate(t1, t2);
   var GLDAStemp = ee.Image(
     ee.Algorithms.If(
-      era5Filtered.size().gt(0),
-      era5Filtered.select(['Tair_f_inst'],['GLDAS_airT_C'])
-        .mean()
-        .subtract(273.15),
+      GLDASFiltered.size().gt(0),
+      GLDASFiltered.select(['Tair_f_inst'],['GLDAS_airT_C'])
+        .mean(),
       ee.Image.constant(-9999).rename('GLDAS_airT_C')
     )
   );
