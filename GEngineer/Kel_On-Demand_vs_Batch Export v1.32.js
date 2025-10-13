@@ -20,7 +20,7 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.32
 // Source: Kel Markert (GEE)
-// Modified by Séamus O'D 10/10/2025
+// Modified by Séamus O'D 13/10/2025
 
 // Load in basin collection
 // Can use features from GEE or imported assets
@@ -116,7 +116,7 @@ function dateMetReduction(i){
       IMERGFiltered.select(['precipitation'],['IMERG_precipCal_mm'])
         .sum()
         .divide(2), // IMERG is Half-Hourly, in mm PER HOUR. 30/60 = 2.
-      ee.Image.constant(0).rename('IMERG_precipCal_mm')
+      ee.Image.constant(-9999).rename('IMERG_precipCal_mm')
     )
   );
   /*/
