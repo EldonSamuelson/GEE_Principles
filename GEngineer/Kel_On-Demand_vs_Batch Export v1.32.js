@@ -42,7 +42,7 @@ var CRK = NotranskjaWS; //Cerknica, C_ID 11
 // Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
 // a shapefile doesn't have those columns
 
-var Catchment = Notranskja;
+var Catchment = THA;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
