@@ -25,24 +25,24 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
 // Load in basin collection
 // Can use features from GEE or imported assets
 // UK
-var Thames = Thames; // C_ID 1
-var Colne = Colne; // C_ID 2 good for short tests, takes 3 min to produce data.
-var Kennet = Kennet; // C_ID 3
-var Blackwater = Blackwater; // C_ID 5
-var Cled_East = Cleddau_East; // C_ID 6
-var Cled_West = Cleddau_West; // C_ID 7
-var Wye_Up = Wye_Upper; // C_ID 8 (Wye)
-var Lugg = Wye_Lugg; // C_ID 8 (Wye)
-var Wye_Low = Wye_Lower; // C_ID 8 (Wye)
-var Stiffkey_G = Stiffkey;  // C_ID 9, also used for Glaven (C_ID 10)
+var THA = Thames; // C_ID 1
+var CLN = Colne; // C_ID 2 good for short tests, takes 3 min to produce data.
+var KLE = Kennet; // C_ID 3
+var BWE = Blackwater; // C_ID 5
+var CLW = Cleddau_East; // C_ID 6
+var CLE = Cleddau_West; // C_ID 7
+var WYU = Wye_Upper; // C_ID 8 (Wye)
+var LGG = Wye_Lugg; // C_ID 8 (Wye)
+var WYL = Wye_Lower; // C_ID 8 (Wye)
+var SFG = Stiffkey;  // C_ID 9, also used for Glaven (C_ID 10)
 // EU
-var Notranskja = NotranskjaWS;
+var CRK = NotranskjaWS; //Cerknica, C_ID 11
 
 // Shapefiles NEED to have all required columns (selectors) to function. 
 // Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
 // a shapefile doesn't have those columns
 
-var Catchment = Stiffkey_G;
+var Catchment = Notranskja;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
@@ -149,7 +149,7 @@ function dateMetReduction(i){
     collection: Catchment,
     reducer: ee.Reducer.mean(),
     // NOTE: When the forcingImg has no bands (endDate>Data available date, 
-    //       it creates a 'mean' band instead that has 0 value
+    //       it creates a 'mean' band instead that has NULL value
     scale: scale
   });
   // NOTE: this will not perform well if grouping catchments that are very far from each other. eg Thames and Mekong
