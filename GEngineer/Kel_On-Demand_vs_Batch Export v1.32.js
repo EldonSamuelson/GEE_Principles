@@ -16,11 +16,13 @@ var era5 = ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY"),
     Cleddau_East = ee.FeatureCollection("projects/ee-seamus-noncomm/assets/PERSIST/Cleddau_East"),
     Cleddau_West = ee.FeatureCollection("projects/ee-seamus-noncomm/assets/PERSIST/Cleddau_West"),
     Stiffkey = ee.FeatureCollection("projects/ee-seamus-noncomm/assets/PERSIST/Stiffkey_Glaven"),
-    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved");
+    Glaven = ee.FeatureCollection("projects/ee-seamus-noncomm/assets/PERSIST/Glaven"),
+    NotranskjaWS = ee.FeatureCollection("users/SeamusWOD/Shapefiles/INCA/Dissolved/INCA_Notranskja_WS_Dissolved"),
+    Notranskja = ee.FeatureCollection("projects/ee-seamus-noncomm/assets/PERSIST/Notranskja");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // v1.32
 // Source: Kel Markert (GEE)
-// Modified by Séamus O'D 13/10/2025
+// Modified by Séamus O'D 16/10/2025
 
 // Load in basin collection
 // Can use features from GEE or imported assets
@@ -35,14 +37,15 @@ var WYU = Wye_Upper; // C_ID 8 (Wye)
 var LGG = Wye_Lugg; // C_ID 8 (Wye)
 var WYL = Wye_Lower; // C_ID 8 (Wye)
 var SFG = Stiffkey;  // C_ID 9, also used for Glaven (C_ID 10)
+var GLV = Glaven; //C_ID 10 (Currently under testing)
 // EU
-var CRK = NotranskjaWS; //Cerknica, C_ID 11
+var CRK = Notranskja; //Cerknica, C_ID 11
 
 // Shapefiles NEED to have all required columns (selectors) to function. 
 // Currently it cannot convert Kelvin to Celsius as the .subtract breaks the script when 
 // a shapefile doesn't have those columns
 
-var Catchment = THA;
+var Catchment = GLV;
 
 // set the scale to run the reduction
 // this is set at the imerg scale
